@@ -1,0 +1,9 @@
+{
+  "name": "Luxor9 Agentic AI",
+  "description": "A hierarchical, multipurpose AI generalist featuring parallel task processing, real-time voice interaction, video generation, and advanced reasoning agents.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}

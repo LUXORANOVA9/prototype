@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
+    <meta name="theme-color" content="#09090b">
+    <meta name="description" content="Luxor9: Hierarchical Agentic AI System">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2593/2593491.png">
+    <title>Luxor9 Agentic AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              zinc: {
+                950: '#09090b', // Custom deep black for consistency
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@100;200;300;400;500;600&family=JetBrains+Mono:wght@100;200;300;400;500&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        /* Theme Variables - Default to Dark values, override in light mode if needed or rely on Tailwind classes */
+        --bg-primary: #09090b;
+      }
+      
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: var(--bg-primary);
+        color: #e4e4e7;
+        overscroll-behavior-y: none;
+        overflow: hidden;
+        -webkit-tap-highlight-color: transparent;
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+
+      /* Light Mode Overrides */
+      html:not(.dark) body {
+        --bg-primary: #fafafa; /* Zinc-50 */
+        background-color: #fafafa;
+        color: #18181b; /* Zinc-900 */
+      }
+
+      /* Animated Nebula - Dark Mode */
+      .nebula-bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: 
+          radial-gradient(circle at 15% 50%, rgba(245, 158, 11, 0.04), transparent 30%),
+          radial-gradient(circle at 85% 30%, rgba(161, 161, 170, 0.05), transparent 30%);
+        z-index: -1;
+        pointer-events: none;
+        transition: opacity 0.5s ease;
+      }
+
+      /* Nebula - Light Mode (Subtler) */
+      html:not(.dark) .nebula-bg {
+        opacity: 0.4;
+        background: 
+          radial-gradient(circle at 15% 50%, rgba(245, 158, 11, 0.1), transparent 40%),
+          radial-gradient(circle at 85% 30%, rgba(200, 200, 220, 0.3), transparent 40%);
+      }
+      
+      .nebula-orb {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(90px);
+        opacity: 0.3;
+        animation: float 25s infinite ease-in-out;
+      }
+      .orb-1 { top: -15%; left: -15%; width: 60vw; height: 60vw; background: rgba(82, 82, 91, 0.1); }
+      .orb-2 { bottom: -15%; right: -15%; width: 70vw; height: 70vw; background: rgba(39, 39, 42, 0.4); }
+
+      html:not(.dark) .orb-1 { background: rgba(200, 200, 210, 0.4); opacity: 0.6; }
+      html:not(.dark) .orb-2 { background: rgba(245, 158, 11, 0.1); opacity: 0.6; }
+
+      @keyframes float {
+        0%, 100% { transform: translate(0, 0) scale(1); }
+        50% { transform: translate(20px, -20px) scale(1.05); }
+      }
+
+      h1, h2, h3, .brand-font { font-family: 'Orbitron', sans-serif; letter-spacing: 0.05em; }
+      .font-mono { font-family: 'JetBrains Mono', monospace; }
+      
+      /* Refined Scrollbars */
+      ::-webkit-scrollbar { width: 5px; height: 5px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
+      html:not(.dark) ::-webkit-scrollbar-thumb { background: #d4d4d8; }
+      ::-webkit-scrollbar-thumb:hover { background: #71717a; }
+      
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      
+      .animate-spin-slow { animation: spin 10s linear infinite; }
+      @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <div class="nebula-bg">
+        <div class="nebula-orb orb-1"></div>
+        <div class="nebula-orb orb-2"></div>
+    </div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
