@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server
+  namespace: {{K8S_NAMESPACE}}
+  labels:
+    app: mcp-server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mcp-server
+  template:
+    metadata:
+      labels:
+        app: mcp-server
+    spec:
+      serviceAccountName: mcp-server-sa
+      containers:
+      - name: server
+        image: {{DOCKER_IMAGE}}
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PROJECT_ID
+          value: "{{PROJECT_ID}}"
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: mcp-secrets
+              key: gemini-api-key
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10

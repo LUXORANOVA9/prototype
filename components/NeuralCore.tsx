@@ -1,12 +1,204 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { memoryService } from '../services/memoryService';
 import { MemoryNode } from '../types';
-import { BrainCircuit, Search, Plus, Clock, Tag, Database, Zap, X, Cpu, Share2, Sparkles, Trash2, Pin, PinOff } from 'lucide-react';
+import { BrainCircuit, Search, Plus, Tag, Database, Zap, X, Cpu, Share2, Sparkles, Trash2, Pin, PinOff, Network, List } from 'lucide-react';
 
 interface Props {
   onClose: () => void;
   className?: string;
 }
+
+interface SimulationNode extends MemoryNode {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+}
+
+// --- Graph Visualization Sub-component ---
+const VectorGraph: React.FC<{ memories: MemoryNode[], onSelect: (id: string) => void }> = ({ memories, onSelect }) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [hoveredNode, setHoveredNode] = useState<SimulationNode | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Simulation State
+    const nodes = useMemo<SimulationNode[]>(() => {
+        return memories.map(m => ({
+            ...m,
+            x: Math.random() * 100, // Initial normalized position 0-100
+            y: Math.random() * 100,
+            vx: (Math.random() - 0.5) * 0.2,
+            vy: (Math.random() - 0.5) * 0.2,
+            radius: m.isPinned ? 6 : 3 + (m.relevance || 0) * 4
+        }));
+    }, [memories]);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const container = containerRef.current;
+        if (!canvas || !container) return;
+
+        let animationFrameId: number;
+        let width = container.clientWidth;
+        let height = container.clientHeight;
+
+        const handleResize = () => {
+            width = container.clientWidth;
+            height = container.clientHeight;
+            canvas.width = width;
+            canvas.height = height;
+        };
+        
+        window.addEventListener('resize', handleResize);
+        handleResize();
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const render = () => {
+            ctx.clearRect(0, 0, width, height);
+            
+            // Physics Update & Draw Connections
+            nodes.forEach((node, i) => {
+                // Update position
+                node.x += node.vx;
+                node.y += node.vy;
+
+                // Bounce off walls
+                if (node.x < 0 || node.x > 100) node.vx *= -1;
+                if (node.y < 0 || node.y > 100) node.vy *= -1;
+
+                // Draw Connections
+                nodes.slice(i + 1).forEach(other => {
+                    // Link if they share tags or are same type
+                    const shareTag = node.tags.some(t => other.tags.includes(t));
+                    const sameType = node.type === other.type;
+                    const dist = Math.hypot((node.x - other.x) * width/100, (node.y - other.y) * height/100);
+                    
+                    if ((shareTag || sameType) && dist < 150) {
+                        ctx.beginPath();
+                        ctx.moveTo((node.x / 100) * width, (node.y / 100) * height);
+                        ctx.lineTo((other.x / 100) * width, (other.y / 100) * height);
+                        ctx.strokeStyle = shareTag 
+                            ? (document.documentElement.classList.contains('dark') ? 'rgba(168,85,247,0.15)' : 'rgba(168,85,247,0.1)') 
+                            : (document.documentElement.classList.contains('dark') ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)');
+                        ctx.lineWidth = shareTag ? 1 : 0.5;
+                        ctx.stroke();
+                    }
+                });
+            });
+
+            // Draw Nodes
+            nodes.forEach(node => {
+                const screenX = (node.x / 100) * width;
+                const screenY = (node.y / 100) * height;
+                
+                // Glow
+                const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, node.radius * 4);
+                const color = node.type === 'user_fact' ? '59, 130, 246' : node.type === 'system_note' ? '245, 158, 11' : '168, 85, 247';
+                
+                gradient.addColorStop(0, `rgba(${color}, 0.5)`);
+                gradient.addColorStop(1, `rgba(${color}, 0)`);
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, node.radius * 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Core
+                ctx.fillStyle = `rgb(${color})`;
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, node.isPinned ? 4 : 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Hover State Ring
+                if (hoveredNode?.id === node.id) {
+                    ctx.strokeStyle = `rgba(${color}, 0.8)`;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.arc(screenX, screenY, node.radius + 4, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            });
+
+            animationFrameId = requestAnimationFrame(render);
+        };
+
+        render();
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            cancelAnimationFrame(animationFrameId);
+        };
+    }, [nodes, hoveredNode]);
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const width = rect.width;
+        const height = rect.height;
+
+        // Find closest node
+        let closest: SimulationNode | null = null;
+        let minDist = 20; // Hit radius
+
+        nodes.forEach(node => {
+            const screenX = (node.x / 100) * width;
+            const screenY = (node.y / 100) * height;
+            const dist = Math.hypot(x - screenX, y - screenY);
+            if (dist < minDist) {
+                minDist = dist;
+                closest = node;
+            }
+        });
+
+        setHoveredNode(closest);
+    };
+
+    return (
+        <div ref={containerRef} className="relative w-full h-full bg-zinc-50 dark:bg-[#050505] overflow-hidden group">
+            <canvas 
+                ref={canvasRef} 
+                className="absolute inset-0 block cursor-crosshair"
+                onMouseMove={handleMouseMove}
+                onClick={() => hoveredNode && onSelect(hoveredNode.id)}
+                onMouseLeave={() => setHoveredNode(null)}
+            />
+            
+            {/* HUD Overlay */}
+            <div className="absolute bottom-4 left-4 pointer-events-none">
+                <div className="text-[10px] font-mono text-zinc-400 dark:text-zinc-600 uppercase tracking-widest mb-1">Vector Space</div>
+                <div className="flex items-center gap-4 text-[9px] text-zinc-500">
+                    <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div> User Facts</div>
+                    <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500"></div> System Notes</div>
+                    <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-purple-500"></div> Interactions</div>
+                </div>
+            </div>
+
+            {/* Hover Tooltip */}
+            {hoveredNode && (
+                <div 
+                    className="absolute z-10 p-3 bg-white/90 dark:bg-black/90 backdrop-blur border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl max-w-[200px] pointer-events-none animate-in fade-in zoom-in-95 duration-200"
+                    style={{ 
+                        left: `${hoveredNode.x}%`, 
+                        top: `${hoveredNode.y}%`,
+                        transform: 'translate(10px, 10px)'
+                    }}
+                >
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1 flex items-center gap-2">
+                        {hoveredNode.isPinned && <Pin size={8} className="text-amber-500" />}
+                        {new Date(hoveredNode.timestamp).toLocaleTimeString()}
+                    </div>
+                    <div className="text-xs text-zinc-800 dark:text-zinc-200 line-clamp-3 leading-relaxed">
+                        {hoveredNode.content}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 export const NeuralCore: React.FC<Props> = ({ onClose, className }) => {
   const [memories, setMemories] = useState<MemoryNode[]>([]);
@@ -14,13 +206,14 @@ export const NeuralCore: React.FC<Props> = ({ onClose, className }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [newMemory, setNewMemory] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'graph'>('list');
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = () => {
-    setMemories(memoryService.getRecent(30).filter(m => !m.isPinned));
+    setMemories(memoryService.getRecent(50)); // Load more for graph
     setPinnedMemories(memoryService.getPinned());
   };
 
@@ -33,10 +226,7 @@ export const NeuralCore: React.FC<Props> = ({ onClose, className }) => {
     
     setIsSearching(true);
     try {
-      const results = await memoryService.search(q, 15);
-      // Split results into pinned/unpinned for display logic if needed, 
-      // but search usually overrides default views.
-      // For clarity, we'll just show search results in the main list.
+      const results = await memoryService.search(q, 20);
       setMemories(results); 
     } catch (e) {
       console.error(e);
@@ -49,20 +239,13 @@ export const NeuralCore: React.FC<Props> = ({ onClose, className }) => {
     if (!newMemory.trim()) return;
     await memoryService.addMemory(newMemory, 'user_fact', ['manual']);
     setNewMemory('');
-    if (searchQuery) {
-        handleSearch(searchQuery);
-    } else {
-        loadData();
-    }
+    if (searchQuery) handleSearch(searchQuery);
+    else loadData();
   };
 
   const handleTogglePin = (id: string) => {
       memoryService.togglePin(id);
-      if (searchQuery) {
-          handleSearch(searchQuery);
-      } else {
-          loadData();
-      }
+      loadData();
   };
 
   const handleDelete = (id: string) => {
@@ -148,9 +331,22 @@ export const NeuralCore: React.FC<Props> = ({ onClose, className }) => {
                </div>
            </div>
         </div>
-        <button onClick={onClose} className="p-2 hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 hover:text-zinc-900 dark:hover:text-white rounded-lg transition-colors">
-            <X size={20} />
-        </button>
+        
+        <div className="flex items-center gap-3">
+             {/* View Toggle */}
+             <div className="bg-zinc-100 dark:bg-zinc-900 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-800 flex">
+                 <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-zinc-700 text-black dark:text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-600'}`}>
+                     <List size={14}/>
+                 </button>
+                 <button onClick={() => setViewMode('graph')} className={`p-1.5 rounded-md transition-all ${viewMode === 'graph' ? 'bg-white dark:bg-zinc-700 text-black dark:text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-600'}`}>
+                     <Network size={14}/>
+                 </button>
+             </div>
+
+            <button onClick={onClose} className="p-2 hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 hover:text-zinc-900 dark:hover:text-white rounded-lg transition-colors">
+                <X size={20} />
+            </button>
+        </div>
       </div>
 
       {/* Input Deck */}
@@ -189,30 +385,44 @@ export const NeuralCore: React.FC<Props> = ({ onClose, className }) => {
           </div>
       </div>
 
-      {/* Data Stream */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3 bg-zinc-50 dark:bg-[#09090b]">
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-hidden bg-zinc-50 dark:bg-[#09090b] relative">
           
-          {/* Pinned Section */}
-          {!searchQuery && pinnedMemories.length > 0 && (
-              <div className="mb-6 space-y-3">
-                  <div className="flex items-center gap-2 px-2 text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest">
-                      <Pin size={10} className="fill-current"/> Persistent Context
-                  </div>
-                  {pinnedMemories.map(renderMemoryCard)}
-                  <div className="h-px bg-zinc-200 dark:bg-zinc-800 my-4 mx-2"></div>
-              </div>
-          )}
+          {viewMode === 'list' ? (
+              <div className="h-full overflow-y-auto custom-scrollbar p-4 space-y-3">
+                  {/* Pinned Section */}
+                  {!searchQuery && pinnedMemories.length > 0 && (
+                      <div className="mb-6 space-y-3">
+                          <div className="flex items-center gap-2 px-2 text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest">
+                              <Pin size={10} className="fill-current"/> Persistent Context
+                          </div>
+                          {pinnedMemories.map(renderMemoryCard)}
+                          <div className="h-px bg-zinc-200 dark:bg-zinc-800 my-4 mx-2"></div>
+                      </div>
+                  )}
 
-          {memories.length === 0 && pinnedMemories.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-zinc-400 dark:text-zinc-700 gap-4">
-                  <div className="w-16 h-16 rounded-full border border-zinc-300 dark:border-zinc-800 flex items-center justify-center">
-                     <Database size={24} className="opacity-40" />
-                  </div>
-                  <span className="text-[10px] font-mono tracking-widest uppercase">No Data Fragments</span>
+                  {memories.length === 0 && pinnedMemories.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-64 text-zinc-400 dark:text-zinc-700 gap-4">
+                          <div className="w-16 h-16 rounded-full border border-zinc-300 dark:border-zinc-800 flex items-center justify-center">
+                             <Database size={24} className="opacity-40" />
+                          </div>
+                          <span className="text-[10px] font-mono tracking-widest uppercase">No Data Fragments</span>
+                      </div>
+                  ) : (
+                      memories.filter(m => !m.isPinned).map(renderMemoryCard)
+                  )}
               </div>
           ) : (
-              memories.map(renderMemoryCard)
+              // Graph Mode
+              <VectorGraph 
+                 memories={[...pinnedMemories, ...memories]} 
+                 onSelect={(id) => {
+                     // In a real app, maybe scroll to it in list or show detail modal
+                     console.log("Selected Node:", id);
+                 }} 
+              />
           )}
+
       </div>
 
       {/* Footer / Stats */}

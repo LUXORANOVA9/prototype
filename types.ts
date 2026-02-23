@@ -15,7 +15,7 @@ export enum AgentType {
   ANTIGRAVITY = 'ANTIGRAVITY', // Executor: Infrastructure & DevOps
 }
 
-export type McpPlatform = 'google' | 'vertex' | 'openai' | 'anthropic' | 'xai' | 'deepseek' | 'huggingface' | 'replicate' | 'custom';
+export type McpPlatform = 'google' | 'vertex' | 'openai' | 'anthropic' | 'xai' | 'deepseek' | 'huggingface' | 'replicate' | 'openrouter' | 'cohere' | 'assemblyai' | 'custom';
 
 export interface McpProfile {
   id: string;
@@ -23,6 +23,26 @@ export interface McpProfile {
   key: string;
   isActive: boolean;
   platform: McpPlatform;
+}
+
+// --- Audit & Reporting ---
+
+export interface AuditFinding {
+  id: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  remediation?: string;
+  affectedComponent?: string;
+}
+
+export interface AuditReport {
+  id: string;
+  target: string;
+  timestamp: number;
+  score: number; // 0-100
+  summary: string;
+  findings: AuditFinding[];
 }
 
 // --- MCP Protocol Definitions (v2024-11-05) ---
@@ -131,26 +151,24 @@ export interface McpConnection {
 export interface CanvasArtifact {
   id: string;
   title: string;
-  type: 'html' | 'react' | 'python' | 'markdown' | 'json';
+  type: 'html' | 'react' | 'python' | 'markdown' | 'json' | 'mermaid';
   content: string;
   timestamp: number;
-}
-
-export interface SubTask {
-  id: string;
-  title: string;
-  completed: boolean;
 }
 
 export interface Task {
   id: string;
   title: string;
-  subtasks: SubTask[];
   completed: boolean;
-  isParallel?: boolean; // New: indicates if task can be processed in parallel
-  dependencies?: string[]; // IDs of tasks that must be completed first
-  assignedAgent?: AgentType; // The specialized agent best suited for this task
-  output?: string; // The result of the task execution
+  description?: string;
+  status?: 'pending' | 'active' | 'blocked' | 'completed' | 'failed';
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  assignedAgent?: AgentType;
+  dependencies?: string[];
+  subtasks: Task[];
+  isParallel?: boolean;
+  output?: string;
+  createdAt?: number;
 }
 
 export interface InputAsset {
@@ -179,6 +197,7 @@ export interface Message {
   image?: string; // base64 (Legacy/Generated)
   videoUri?: string; // for generated videos
   audioData?: string; // base64 for TTS
+  auditReport?: AuditReport; // New: Structured audit
   
   // User uploaded assets
   inputAsset?: InputAsset;

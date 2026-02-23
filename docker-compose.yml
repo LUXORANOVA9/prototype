@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - API_KEY=${API_KEY} # Inject from local shell
+      - PROJECT_ID=local-lab
+      - REGION=us-central1
+    volumes:
+      - ./service:/app
+    restart: always
+
+  # Optional: Redis for rate limiting (future)
+  # redis:
+  #   image: redis:alpine
+  #   ports:
+  #     - "6379:6379"

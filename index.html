@@ -3,48 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
-    <meta name="theme-color" content="#09090b">
+    <meta name="theme-color" content="#050505">
     <meta name="description" content="Luxor9: Hierarchical Agentic AI System">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2593/2593491.png">
     <title>Luxor9 Agentic AI</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              zinc: {
-                950: '#09090b', // Custom deep black for consistency
-              }
-            }
-          }
-        }
-      }
-    </script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@100;200;300;400;500;600&family=JetBrains+Mono:wght@100;200;300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/index.css">
     <style>
-      :root {
-        /* Theme Variables - Default to Dark values, override in light mode if needed or rely on Tailwind classes */
-        --bg-primary: #09090b;
+      /* Safe Area Utilities */
+      .pt-safe {
+        padding-top: env(safe-area-inset-top, 20px);
       }
-      
-      body {
-        font-family: 'Inter', sans-serif;
-        background-color: var(--bg-primary);
-        color: #e4e4e7;
-        overscroll-behavior-y: none;
-        overflow: hidden;
-        -webkit-tap-highlight-color: transparent;
-        transition: background-color 0.3s ease, color 0.3s ease;
-      }
-
-      /* Light Mode Overrides */
-      html:not(.dark) body {
-        --bg-primary: #fafafa; /* Zinc-50 */
-        background-color: #fafafa;
-        color: #18181b; /* Zinc-900 */
+      .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom, 20px);
       }
 
       /* Animated Nebula - Dark Mode */
@@ -55,8 +26,8 @@
         width: 100vw;
         height: 100vh;
         background: 
-          radial-gradient(circle at 15% 50%, rgba(245, 158, 11, 0.04), transparent 30%),
-          radial-gradient(circle at 85% 30%, rgba(161, 161, 170, 0.05), transparent 30%);
+          radial-gradient(circle at 15% 50%, rgba(245, 158, 11, 0.03), transparent 30%),
+          radial-gradient(circle at 85% 30%, rgba(161, 161, 170, 0.04), transparent 30%);
         z-index: -1;
         pointer-events: none;
         transition: opacity 0.5s ease;
@@ -77,8 +48,8 @@
         opacity: 0.3;
         animation: float 25s infinite ease-in-out;
       }
-      .orb-1 { top: -15%; left: -15%; width: 60vw; height: 60vw; background: rgba(82, 82, 91, 0.1); }
-      .orb-2 { bottom: -15%; right: -15%; width: 70vw; height: 70vw; background: rgba(39, 39, 42, 0.4); }
+      .orb-1 { top: -15%; left: -15%; width: 60vw; height: 60vw; background: rgba(82, 82, 91, 0.08); }
+      .orb-2 { bottom: -15%; right: -15%; width: 70vw; height: 70vw; background: rgba(39, 39, 42, 0.3); }
 
       html:not(.dark) .orb-1 { background: rgba(200, 200, 210, 0.4); opacity: 0.6; }
       html:not(.dark) .orb-2 { background: rgba(245, 158, 11, 0.1); opacity: 0.6; }
@@ -108,10 +79,19 @@
 {
   "imports": {
     "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0?deps=react@18.3.1",
+    "react": "https://esm.sh/react@18.3.1",
+    "react/": "https://esm.sh/react@18.3.1/",
+    "react-dom": "https://esm.sh/react-dom@18.3.1?deps=react@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client?deps=react@18.3.1",
+    "framer-motion": "https://esm.sh/framer-motion@11.0.8?deps=react@18.3.1,react-dom@18.3.1",
+    "three": "https://esm.sh/three@0.160.0",
+    "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.15.14?deps=three@0.160.0,react@18.3.1,react-dom@18.3.1",
+    "@react-three/drei": "https://esm.sh/@react-three/drei@9.96.1?deps=three@0.160.0,react@18.3.1,@react-three/fiber@8.15.14",
+    "express": "https://esm.sh/express@^5.2.1",
+    "cors": "https://esm.sh/cors@^2.8.6",
+    "uuid": "https://esm.sh/uuid@^13.0.0",
+    "morgan": "https://esm.sh/morgan@^1.10.1"
   }
 }
 </script>
@@ -123,5 +103,5 @@
         <div class="nebula-orb orb-2"></div>
     </div>
     <script type="module" src="/index.tsx"></script>
-  </body>
+</body>
 </html>

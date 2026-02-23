@@ -97,6 +97,18 @@ class RealtimeMcpRouter {
          const key = getEnvVar('DEEPSEEK_API_KEY');
          if (key) return key;
      }
+     if (platform === 'openrouter') {
+         const key = getEnvVar('OPENROUTER_API_KEY');
+         if (key) return key;
+     }
+     if (platform === 'cohere') {
+         const key = getEnvVar('COHERE_API_KEY');
+         if (key) return key;
+     }
+     if (platform === 'assemblyai') {
+         const key = getEnvVar('ASSEMBLYAI_API_KEY');
+         if (key) return key;
+     }
 
      // 3. Explicit Inactive Match (Fallback to saved profile)
      const specific = this.profiles.find(p => p.platform === platform);
@@ -111,6 +123,11 @@ class RealtimeMcpRouter {
      if (platform === 'openai') {
          const skMatch = this.profiles.find(p => p.key.trim().startsWith('sk-'));
          if (skMatch) return skMatch.key;
+     }
+
+     if (platform === 'openrouter') {
+         const orMatch = this.profiles.find(p => p.key.trim().startsWith('sk-or-'));
+         if (orMatch) return orMatch.key;
      }
 
      if (platform === 'google') {
@@ -136,20 +153,22 @@ class RealtimeMcpRouter {
   }
 
   public addProfile(name: string, key: string, platform: McpPlatform = 'google') {
-    const isFirst = this.profiles.length === 0;
-    
     // Auto-detect platform if user selected Custom/Google but key is obvious
     let finalPlatform = platform;
     if (platform === 'custom' || platform === 'google') {
         if (key.trim().startsWith('hf_')) finalPlatform = 'huggingface';
+        else if (key.trim().startsWith('sk-or-')) finalPlatform = 'openrouter';
         else if (key.trim().startsWith('sk-')) finalPlatform = 'openai';
     }
+
+    // Check if there is already an active profile for this platform
+    const hasActive = this.profiles.some(p => p.platform === finalPlatform && p.isActive);
 
     const newProfile: McpProfile = {
       id: crypto.randomUUID(),
       name,
       key,
-      isActive: isFirst, 
+      isActive: !hasActive, // Auto-activate if it's the first/only one for this platform
       platform: finalPlatform
     };
     this.profiles.push(newProfile);
@@ -162,11 +181,17 @@ class RealtimeMcpRouter {
     this.saveProfiles();
   }
 
-  public setActiveProfile(id: string | null) {
-    this.profiles = this.profiles.map(p => ({
-      ...p,
-      isActive: p.id === id
-    }));
+  public setActiveProfile(id: string) {
+    const target = this.profiles.find(p => p.id === id);
+    if (!target) return;
+    
+    // Deactivate all others for this platform, activate target
+    this.profiles = this.profiles.map(p => {
+        if (p.platform === target.platform) {
+            return { ...p, isActive: p.id === id };
+        }
+        return p;
+    });
     this.saveProfiles();
   }
 }

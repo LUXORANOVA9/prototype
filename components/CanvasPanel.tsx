@@ -30,6 +30,31 @@ export const CanvasPanel: React.FC<Props> = ({ artifact, onClose, className }) =
 
   // Construct srcDoc for the iframe
   const getSrcDoc = () => {
+    // Mermaid Diagram Support
+    if (artifact.type === 'mermaid') {
+       return `
+         <!DOCTYPE html>
+         <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body { background: #000; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+                    .mermaid { width: 100%; display: flex; justify-content: center; }
+                </style>
+            </head>
+            <body>
+                <div class="mermaid">
+                    ${artifact.content}
+                </div>
+                <script type="module">
+                    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+                    mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+                </script>
+            </body>
+         </html>
+       `;
+    }
+
     if (artifact.type === 'html' || artifact.type === 'react') {
       // Inject base styles for better preview
       const baseStyles = `
@@ -111,13 +136,17 @@ export const CanvasPanel: React.FC<Props> = ({ artifact, onClose, className }) =
                  <button onClick={refreshPreview} className="text-zinc-500 hover:text-amber-500 transition-colors p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-900 rounded-md" title="Reload Frame">
                      <RefreshCw size={12} />
                  </button>
-                 <div className="h-4 w-px bg-zinc-300 dark:bg-zinc-800 mx-1"></div>
-                 <button onClick={() => setViewport('mobile')} className={`p-1.5 rounded-md transition-all ${viewport === 'mobile' ? 'text-amber-600 dark:text-amber-500 bg-amber-500/10' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`}>
-                     <Smartphone size={12} />
-                 </button>
-                 <button onClick={() => setViewport('desktop')} className={`p-1.5 rounded-md transition-all ${viewport === 'desktop' ? 'text-amber-600 dark:text-amber-500 bg-amber-500/10' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`}>
-                     <Monitor size={12} />
-                 </button>
+                 {artifact.type !== 'mermaid' && (
+                     <>
+                        <div className="h-4 w-px bg-zinc-300 dark:bg-zinc-800 mx-1"></div>
+                        <button onClick={() => setViewport('mobile')} className={`p-1.5 rounded-md transition-all ${viewport === 'mobile' ? 'text-amber-600 dark:text-amber-500 bg-amber-500/10' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`}>
+                            <Smartphone size={12} />
+                        </button>
+                        <button onClick={() => setViewport('desktop')} className={`p-1.5 rounded-md transition-all ${viewport === 'desktop' ? 'text-amber-600 dark:text-amber-500 bg-amber-500/10' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`}>
+                            <Monitor size={12} />
+                        </button>
+                     </>
+                 )}
              </div>
              <div className="text-[10px] font-mono text-zinc-500 dark:text-zinc-600">
                  Read-Only Sandbox
@@ -144,7 +173,7 @@ export const CanvasPanel: React.FC<Props> = ({ artifact, onClose, className }) =
                      key={key}
                      title="Preview"
                      srcDoc={getSrcDoc()}
-                     className={`transition-all duration-500 shadow-2xl bg-white ${viewport === 'mobile' ? 'w-[375px] h-[667px] rounded-3xl border-8 border-zinc-800 dark:border-zinc-900' : 'w-full h-full border-none'}`}
+                     className={`transition-all duration-500 shadow-2xl bg-white ${viewport === 'mobile' && artifact.type !== 'mermaid' ? 'w-[375px] h-[667px] rounded-3xl border-8 border-zinc-800 dark:border-zinc-900' : 'w-full h-full border-none'}`}
                      sandbox="allow-scripts allow-modals allow-forms allow-popups"
                   />
               </div>

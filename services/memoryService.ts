@@ -1,5 +1,5 @@
 import { MemoryNode } from "../types";
-import { getEmbedding } from "./geminiService";
+import { getEmbedding } from "./aiCore";
 
 const STORAGE_KEY = 'luxor9_neural_core_v1';
 const MAX_MEMORIES = 200; // Prevent localStorage overflow

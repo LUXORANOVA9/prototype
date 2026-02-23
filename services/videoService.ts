@@ -23,6 +23,15 @@ export const VIDEO_MODELS: VideoModel[] = [
     apiPath: 'THUDM/CogVideoX-5b'
   },
   {
+    id: 'veo-3.1-fast-generate-preview',
+    name: 'Veo Fast',
+    provider: 'google',
+    tier: 3,
+    capabilities: ['t2v', 'i2v'],
+    description: 'Google Veo Fast. Requires paid API key.',
+    apiPath: 'veo-3.1-fast-generate-preview'
+  },
+  {
     id: 'stabilityai/stable-video-diffusion-img2vid-xt-1-1',
     name: 'Stable Video Diffusion (SVD)',
     provider: 'huggingface',
@@ -95,7 +104,7 @@ export const generateVideo = async (config: VideoGenerationConfig, modelId?: str
 
   try {
     if (model.provider === 'google') {
-      throw new Error("Veo model is currently disabled. Please use an Open Source alternative.");
+      return await runGoogleVideoGeneration(config, model);
     } else if (model.provider === 'huggingface') {
       return await runHuggingFaceGeneration(config, model);
     } else {
@@ -129,6 +138,66 @@ export const generateVideo = async (config: VideoGenerationConfig, modelId?: str
     throw error;
   }
 };
+
+const runGoogleVideoGeneration = async (config: VideoGenerationConfig, model: VideoModel): Promise<{ uri: string, provider: string }> => {
+    const apiKey = mcpRouter.getUniversalKey();
+    if (!apiKey) throw new Error("Google API Key missing for Veo.");
+    
+    // Check for Paid Key selection via window.aistudio if available (as per Veo docs requirement in some envs)
+    if ((window as any).aistudio) {
+        try {
+            const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+            if (!hasKey) {
+                 await (window as any).aistudio.openSelectKey();
+            }
+        } catch (e) {
+            console.warn("AIStudio key selection check skipped", e);
+        }
+    }
+
+    // Always create new instance to pick up potentially new key
+    const ai = new GoogleGenAI({ apiKey });
+    
+    let operation;
+
+    if (config.image) {
+         operation = await ai.models.generateVideos({
+            model: model.id,
+            prompt: config.prompt, 
+            image: {
+                imageBytes: config.image.includes('base64,') ? config.image.split(',')[1] : config.image,
+                mimeType: 'image/png' 
+            },
+            config: {
+                numberOfVideos: 1,
+                resolution: config.resolution,
+                aspectRatio: config.aspectRatio
+            }
+         });
+    } else {
+        operation = await ai.models.generateVideos({
+            model: model.id,
+            prompt: config.prompt,
+            config: {
+                numberOfVideos: 1,
+                resolution: config.resolution,
+                aspectRatio: config.aspectRatio
+            }
+        });
+    }
+
+    // Polling
+    while (!operation.done) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        operation = await ai.operations.getVideosOperation({ operation: operation });
+    }
+
+    const video = operation.response?.generatedVideos?.[0]?.video;
+    if (!video?.uri) throw new Error("Veo generation failed to return URI.");
+    
+    // Append key for download access if required by API pattern
+    return { uri: `${video.uri}&key=${apiKey}`, provider: 'google' };
+}
 
 const runHuggingFaceGeneration = async (config: VideoGenerationConfig, model: VideoModel): Promise<{ uri: string, provider: string }> => {
     // 1. Smart Token Strategy (Autonomous)
