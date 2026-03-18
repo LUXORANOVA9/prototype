@@ -41,16 +41,16 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
       return (
-        <div className="flex flex-col items-center justify-center h-screen bg-[#050505] text-white p-8 text-center font-mono">
-          <AlertTriangle size={48} className="text-red-500 mb-4" />
-          <h2 className="text-xl font-bold text-red-500 mb-2">System Critical Failure</h2>
-          <p className="text-zinc-500 mb-6 max-w-md">The application encountered a fatal error during initialization.</p>
-          <div className="bg-zinc-900 p-4 rounded border border-zinc-800 text-xs text-left w-full max-w-lg overflow-auto max-h-48 mb-6">
+        <div className="flex flex-col items-center justify-center h-screen bg-[#02050A] text-white p-8 text-center font-mono">
+          <AlertTriangle size={48} className="text-amber-500 mb-4" />
+          <h2 className="text-xl font-bold text-amber-500 mb-2">System Critical Failure</h2>
+          <p className="text-zinc-500 mb-6 max-w-md">The factory encountered a fatal error during initialization.</p>
+          <div className="bg-zinc-900/80 backdrop-blur p-4 rounded-xl border border-zinc-800 text-xs text-left w-full max-w-lg overflow-auto max-h-48 mb-6">
             {this.state.error?.toString() || "Unknown Error"}
           </div>
           <button 
             onClick={() => { localStorage.clear(); window.location.reload(); }}
-            className="px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-bold text-sm uppercase tracking-wider transition-colors"
+            className="px-6 py-3 bg-amber-600 hover:bg-amber-500 rounded-full font-bold text-sm uppercase tracking-wider transition-all duration-300 hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] cursor-pointer"
           >
             Hard Reset & Reload
           </button>
@@ -63,7 +63,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
 const GlobalStyles = () => (
   <style dangerouslySetInnerHTML={{ __html: `
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=Source+Serif+4:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap');
 
     :root {
       --white: hsl(0 0% 100%);
@@ -75,19 +75,76 @@ const GlobalStyles = () => (
       --white-10: hsla(0,0%,100%,0.10);
       --white-05: hsla(0,0%,100%,0.05);
       --white-01: hsla(0,0%,100%,0.01);
-      --font-display: 'Source Serif 4', serif;
-      --font-body: 'Poppins', sans-serif;
+      --font-display: 'Instrument Serif', serif;
+      --font-body: 'Inter', sans-serif;
+      --font-story: 'Playfair Display', serif;
+      --amber: #f59e0b;
+      --amber-glow: rgba(245, 158, 11, 0.4);
     }
 
-    /* Liquid Glass */
-    .liquid-glass { background: rgba(255,255,255,0.01); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); border: none; box-shadow: inset 0 1px 1px rgba(255,255,255,0.10); position: relative; overflow: hidden; }
-    .liquid-glass::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1.4px; background: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.15) 20%, transparent 40%, transparent 60%, rgba(255,255,255,0.15) 80%, rgba(255,255,255,0.45) 100%); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
-    .liquid-glass-strong { backdrop-filter: blur(50px); -webkit-backdrop-filter: blur(50px); box-shadow: 4px 4px 4px rgba(0,0,0,0.05), inset 0 1px 1px rgba(255,255,255,0.15); }
-    .liquid-glass-strong::before { background: linear-gradient(180deg, rgba(255,255,255,0.50) 0%, rgba(255,255,255,0.20) 20%, transparent 40%, transparent 60%, rgba(255,255,255,0.20) 80%, rgba(255,255,255,0.50) 100%); }
+    /* Enhanced Liquid Glass */
+    .liquid-glass {
+      background: rgba(255,255,255,0.02);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: inset 0 0 20px rgba(255,255,255,0.02), 0 8px 32px -4px rgba(0,0,0,0.5);
+      position: relative;
+      overflow: hidden;
+      transition: all 0.5s cubic-bezier(.16,.84,.24,1);
+    }
+    .liquid-glass::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.35) 0%, transparent 40%, transparent 60%, rgba(255,255,255,0.08) 100%);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      padding: 1px;
+      border-radius: inherit;
+      pointer-events: none;
+    }
+    .liquid-glass::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%; width: 50%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+      transform: skewX(-20deg);
+      transition: 0.7s ease;
+    }
+    .liquid-glass:hover::after { left: 200%; }
+    .liquid-glass:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.12);
+      transform: translateY(-2px);
+    }
+    .liquid-glass:active { transform: translateY(1px); }
+
+    .liquid-glass-strong {
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(50px);
+      -webkit-backdrop-filter: blur(50px);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: inset 0 0 30px rgba(255,255,255,0.03), 0 12px 40px -4px rgba(0,0,0,0.5);
+    }
 
     /* Animations */
     @keyframes fade-rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
     .animate-fade-rise { animation: fade-rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+
+    /* Focus ring */
+    button:focus-visible, a:focus-visible {
+      outline: 2px solid rgba(245, 158, 11, 0.5);
+      outline-offset: 4px;
+      border-radius: 999px;
+    }
+
+    /* Selection */
+    ::selection {
+      background: rgba(245, 158, 11, 0.3);
+      color: white;
+    }
   `}} />
 );
 
@@ -123,7 +180,7 @@ const AppContent: React.FC = () => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('luxor9_theme', 'dark');
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#09090b');
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#02050A');
     } else {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('luxor9_theme', 'light');
@@ -131,16 +188,20 @@ const AppContent: React.FC = () => {
     }
   }, [isDarkMode]);
 
+  // Listen for custom launch event from index.html
+  useEffect(() => {
+    const handleLaunchEvent = () => handleLaunch();
+    window.addEventListener('luxor9:launch', handleLaunchEvent);
+    return () => window.removeEventListener('luxor9:launch', handleLaunchEvent);
+  }, []);
+
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Toggle Settings with Ctrl/Cmd + ,
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
         e.preventDefault();
         setIsMcpOpen(prev => !prev);
       }
-      
-      // Launch from Landing with Cmd+K
       if (!hasLaunched && !isLaunching && (e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         handleLaunch();
@@ -157,7 +218,7 @@ const AppContent: React.FC = () => {
       setTimeout(() => {
           setHasLaunched(true);
           setIsLaunching(false);
-      }, 1000); // Wait for LandingPage exit animation
+      }, 1000);
   };
 
   return (
@@ -166,7 +227,7 @@ const AppContent: React.FC = () => {
       {(!hasLaunched || isLaunching) && (
         <ErrorBoundary fallback={null}>
             <Suspense fallback={
-                <div className="fixed inset-0 bg-[#050505] flex items-center justify-center z-50">
+                <div className="fixed inset-0 bg-[#02050A] flex items-center justify-center z-50">
                     <Loader2 className="animate-spin text-amber-500" size={32} />
                 </div>
             }>
@@ -177,7 +238,7 @@ const AppContent: React.FC = () => {
 
       {/* Main App Layer */}
       {hasLaunched && !isLaunching && (
-        <div className="flex flex-col md:flex-row h-[100dvh] w-full bg-zinc-50 dark:bg-[#09090b] text-zinc-900 dark:text-zinc-200 overflow-hidden relative selection:bg-amber-500/30 transition-colors duration-300 animate-in fade-in duration-1000">
+        <div className="flex flex-col md:flex-row h-[100dvh] w-full bg-[#02050A] dark:bg-[#02050A] text-zinc-200 overflow-hidden relative selection:bg-amber-500/30 transition-colors duration-300 animate-in fade-in duration-1000">
           <McpPanel 
             isOpen={isMcpOpen} 
             onClose={() => setIsMcpOpen(false)} 
