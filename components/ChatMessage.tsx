@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Message, Task } from '../types';
-import { User, Bot, ExternalLink, MapPin, BrainCircuit, AlertTriangle, ShieldCheck, Film, Cpu, Image as ImageIcon, Terminal, Code, CheckCircle2, XCircle, Server, Globe, ChevronDown, ChevronRight, Sparkles, Brain, Activity, Box, Zap, Wifi, MousePointer2, Search, Table, RefreshCw } from 'lucide-react';
+import { User, Bot, ExternalLink, MapPin, BrainCircuit, AlertTriangle, ShieldCheck, Film, Cpu, Image as ImageIcon, Terminal, Code, CircleCheck, CircleX, Server, Globe, ChevronDown, ChevronRight, Sparkles, Brain, Activity, Box, Zap, Wifi, MousePointer2, Search, Table, RefreshCw } from 'lucide-react';
 import { TaskBoard } from './TaskBoard';
 import { memoryService } from '../services/memoryService';
 import { AuditReportCard } from './AuditReport';
@@ -10,6 +10,7 @@ interface Props {
   onUpdateTasks?: (tasks: Task[]) => void;
   onExecuteTask?: (task: Task) => void;
   executingTaskIds?: Set<string>;
+  onSecurityResponse?: (messageId: string, approved: boolean) => void;
 }
 
 const CodeTerminal: React.FC<{ content: string }> = ({ content }) => {
@@ -227,7 +228,7 @@ const OpsTerminal: React.FC<{ content: string }> = ({ content }) => {
     );
 };
 
-export const ChatMessage: React.FC<Props> = ({ message, onUpdateTasks, onExecuteTask, executingTaskIds }) => {
+export const ChatMessage: React.FC<Props> = ({ message, onUpdateTasks, onExecuteTask, executingTaskIds, onSecurityResponse }) => {
   const isUser = message.role === 'user';
   const [showThinking, setShowThinking] = useState(false);
   const [isMemorized, setIsMemorized] = useState(false);
@@ -320,6 +321,32 @@ export const ChatMessage: React.FC<Props> = ({ message, onUpdateTasks, onExecute
                   <AuditReportCard report={message.auditReport} />
               </div>
           )}
+          
+          {message.securityRequest && (
+              <div className="mt-4 p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 shadow-lg animate-in zoom-in-95 duration-300">
+                  <div className="flex items-center gap-2 text-rose-500 font-bold mb-2">
+                      <AlertTriangle size={16} />
+                      <span>Security Alert: External Instructions Detected</span>
+                  </div>
+                  <div className="text-xs text-zinc-700 dark:text-zinc-300 mb-2">
+                      Found in: <span className="font-mono text-rose-600 dark:text-rose-400">{message.securityRequest.source}</span>
+                  </div>
+                  <div className="p-3 bg-white/50 dark:bg-black/50 rounded-lg font-mono text-xs text-zinc-800 dark:text-zinc-300 mb-4 border border-rose-500/20 whitespace-pre-wrap">
+                      {message.securityRequest.instructions}
+                  </div>
+                  {message.securityRequest.status === 'pending' ? (
+                      <div className="flex gap-3">
+                          <button onClick={() => onSecurityResponse?.(message.id, false)} className="px-4 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold transition-colors shadow-md">Reject & Block</button>
+                          <button onClick={() => onSecurityResponse?.(message.id, true)} className="px-4 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white text-xs font-bold transition-colors shadow-md">Approve Execution</button>
+                      </div>
+                  ) : (
+                      <div className={`text-xs font-bold uppercase tracking-wider ${message.securityRequest.status === 'approved' ? 'text-emerald-600 dark:text-emerald-500' : 'text-rose-600 dark:text-rose-500'}`}>
+                          Status: {message.securityRequest.status}
+                      </div>
+                  )}
+              </div>
+          )}
+          
           {isDevOutput && message.text && <CodeTerminal content={message.text} />}
           {isOpsOutput && message.text && <OpsTerminal content={message.text.split('[Antigravity Ops]')[1] || ''} />}
           {isBrowserOutput && message.text && <BrowserTerminal content={message.text} />}

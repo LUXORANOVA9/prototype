@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useTransition } from 'react';
 import { AgentType, Message, ImageGenerationConfig, VideoGenerationConfig, Task, InputAsset, CanvasArtifact, AuditReport } from '../types';
 import { 
   runOverseerAgent, 
@@ -18,16 +18,20 @@ import {
 } from '../services/geminiService';
 import { generateVideo, VIDEO_MODELS } from '../services/videoService';
 import { evaluateResponse } from '../utils/antiPatterns';
+import AntiPatternsWorker from '../utils/antiPatternsWorker?worker';
 import { mapMessagesToHistory } from '../utils/geminiHelpers';
 import { ChatMessage } from './ChatMessage';
-import { Send, Image as ImageIcon, Loader2, Mic, MicOff, Search, BrainCircuit, Paperclip, Activity, Layers, ShieldCheck, Smartphone, Clapperboard, MonitorPlay, Settings, Cpu, ChevronRight, Zap, Sparkles, X, ArrowRight, Square, Terminal, Code, Palette, Globe, Database, Network, Target, ChevronDown, Film } from 'lucide-react';
+import { Send, Image as ImageIcon, Loader2, Mic, MicOff, Search, BrainCircuit, Paperclip, Activity, Layers, ShieldCheck, Smartphone, Clapperboard, MonitorPlay, Settings, Cpu, ChevronRight, Zap, Sparkles, X, ArrowRight, Square, Terminal, Code, Palette, Globe, Database, Network, Target, ChevronDown, Film, Monitor } from 'lucide-react';
 import { LiveInterface } from './LiveInterface';
 import { mcpRouter } from '../services/mcpRouter';
+import { memoryService } from '../services/memoryService';
 import { CanvasPanel } from './CanvasPanel';
 import { NeuralCore } from './NeuralCore';
+import { VncViewer } from './VncViewer';
 
 const STARTER_PROMPTS: Partial<Record<AgentType, { label: string; prompt: string; icon: any }[]>> = {
     [AgentType.OVERSEER]: [
+      { label: "Hierarchical Delegation", prompt: "I need to build a complex web application. Please coordinate with the Developer and Visionary agents to create a plan and execute it.", icon: Network },
       { label: "Project Architect", prompt: "Create a comprehensive architectural plan for a scalable SaaS platform.", icon: Layers },
       { label: "Strategic Decomposition", prompt: "Break down the goal of 'Launching a successful AI startup' into actionable phases.", icon: Network },
       { label: "System Audit", prompt: "Run a full system audit on the 'payments-service'. Use consult_planner to generate the audit steps first.", icon: ShieldCheck }
@@ -43,6 +47,7 @@ const STARTER_PROMPTS: Partial<Record<AgentType, { label: string; prompt: string
       { label: "Surreal Landscape", prompt: "A dreamlike landscape with floating islands and purple clouds.", icon: ImageIcon }
     ],
     [AgentType.DIRECTOR]: [
+      { label: "Cinematic Narrative", prompt: "Elevate a simple story about a morning coffee into a breathtaking, profoundly moving cinematic exploration.", icon: Film },
       { label: "Cinematic Trailer", prompt: "A cinematic drone shot of a futuristic metropolis at sunset, neon lights reflecting on wet pavement, 4k, high detail.", icon: Film },
       { label: "Character Motion", prompt: "A cyberpunk character walking through a busy market, detailed facial features, volumetric lighting.", icon: Clapperboard },
       { label: "Abstract Motion", prompt: "Swirling liquid metal forming complex geometric shapes, smooth motion, 60fps.", icon: Activity }
@@ -75,12 +80,19 @@ const getCurrentPosition = (): Promise<{lat: number, lng: number} | undefined> =
 export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => void }> = ({ agent, onOpenMcp }) => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isPending, startTransition] = useTransition();
   
+  const dispatchMessages = (action: React.SetStateAction<Message[]>) => {
+    startTransition(() => {
+      setMessages(action);
+    });
+  };
+
   // Refactored Loading State for Parallelism
   const [isChatGenerating, setIsChatGenerating] = useState(false);
   const [executingTaskIds, setExecutingTaskIds] = useState<Set<string>>(new Set());
   
-  const isBusy = isChatGenerating || executingTaskIds.size > 0;
+  const isBusy = isChatGenerating || executingTaskIds.size > 0 || isPending;
 
   const [attachedAsset, setAttachedAsset] = useState<string | null>(null);
   const [assetType, setAssetType] = useState<'image' | 'video' | null>(null);
@@ -88,12 +100,15 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
   
   // Voice Input
   const [isListening, setIsListening] = useState(false);
-  const speechRecognitionRef = useRef<any>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // Panels
   const [activeArtifact, setActiveArtifact] = useState<CanvasArtifact | null>(null);
   const [showCanvas, setShowCanvas] = useState(false);
   const [showNeuralCore, setShowNeuralCore] = useState(false);
+  const [showVncViewer, setShowVncViewer] = useState(false);
   
   const [concurrencyCount, setConcurrencyCount] = useState(0);
 
@@ -116,15 +131,50 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
 
   const assetInputRef = useRef<HTMLInputElement>(null);
   const msgEndRef = useRef<HTMLDivElement>(null);
+  const workerRef = useRef<Worker | null>(null);
+
+  // Initialize Web Worker
+  useEffect(() => {
+    workerRef.current = new AntiPatternsWorker();
+    return () => workerRef.current?.terminate();
+  }, []);
+
+  // Async evaluation helper
+  const evaluateResponseAsync = (text: string, prompt: string): Promise<any> => {
+    return new Promise((resolve) => {
+      if (!workerRef.current) {
+        resolve(evaluateResponse(text, prompt));
+        return;
+      }
+      const id = Date.now().toString() + Math.random().toString();
+      const handler = (e: MessageEvent) => {
+        if (e.data.id === id) {
+          workerRef.current?.removeEventListener('message', handler);
+          resolve(e.data.result);
+        }
+      };
+      workerRef.current.addEventListener('message', handler);
+      workerRef.current.postMessage({ id, text, prompt });
+    });
+  };
 
   // Auto-scroll effect
   useEffect(() => {
     msgEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isBusy]);
 
+  // Auto-start video generation for Director agent
+  useEffect(() => {
+    if (agent === AgentType.DIRECTOR && messages.length === 0) {
+      const instantPrompt = STARTER_PROMPTS[AgentType.DIRECTOR]?.[0]?.prompt || "Cinematic shot";
+      executePrompt(instantPrompt);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent, messages.length]);
+
   // Helper to update a task deep in the message history
   const updateTaskInHistory = (taskId: string, updates: Partial<Task>) => {
-      setMessages(prev => prev.map(msg => {
+      dispatchMessages(prev => prev.map(msg => {
           if (!msg.tasks) return msg;
           const hasTask = msg.tasks.some(t => t.id === taskId);
           if (!hasTask) return msg;
@@ -137,30 +187,52 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
   };
 
   // Voice Input Handling
-  const toggleListening = () => {
+  const toggleListening = async () => {
       if (isListening) {
-          speechRecognitionRef.current?.stop();
+          mediaRecorderRef.current?.stop();
           setIsListening(false);
       } else {
-          const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-          if (!SpeechRecognition) {
-              alert("Voice input not supported in this browser.");
-              return;
+          try {
+              const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              const mediaRecorder = new MediaRecorder(stream);
+              audioChunksRef.current = [];
+
+              mediaRecorder.ondataavailable = (event) => {
+                  if (event.data.size > 0) {
+                      audioChunksRef.current.push(event.data);
+                  }
+              };
+
+              mediaRecorder.onstop = async () => {
+                  setIsTranscribing(true);
+                  const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                  const reader = new FileReader();
+                  reader.readAsDataURL(audioBlob);
+                  reader.onloadend = async () => {
+                      const base64data = reader.result as string;
+                      const base64Audio = base64data.split(',')[1];
+                      try {
+                          const transcript = await runCommunicatorTranscription(base64Audio, 'audio/webm');
+                          if (transcript) {
+                              setInput(prev => prev + (prev ? ' ' : '') + transcript);
+                          }
+                      } catch (error) {
+                          console.error("Transcription failed:", error);
+                          alert("Transcription failed. Please try again.");
+                      } finally {
+                          setIsTranscribing(false);
+                      }
+                  };
+                  stream.getTracks().forEach(track => track.stop());
+              };
+
+              mediaRecorderRef.current = mediaRecorder;
+              mediaRecorder.start();
+              setIsListening(true);
+          } catch (error) {
+              console.error("Microphone access denied:", error);
+              alert("Microphone access is required for voice input.");
           }
-          const recognition = new SpeechRecognition();
-          recognition.continuous = false;
-          recognition.interimResults = false;
-          recognition.lang = 'en-US';
-
-          recognition.onstart = () => setIsListening(true);
-          recognition.onend = () => setIsListening(false);
-          recognition.onresult = (event: any) => {
-              const transcript = event.results[0][0].transcript;
-              setInput(prev => prev + (prev ? ' ' : '') + transcript);
-          };
-
-          speechRecognitionRef.current = recognition;
-          recognition.start();
       }
   };
 
@@ -183,10 +255,10 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
       const execMsgId = `exec-${task.id}-${Date.now()}`;
       const userMsg: Message = { id: execMsgId, role: 'user', text: `Execute Task: ${task.title}`, timestamp: Date.now() };
       
-      setMessages(prev => [...prev, userMsg]);
+      dispatchMessages(prev => [...prev, userMsg]);
 
       // 2. Prepare Context (History)
-      const history = mapMessagesToHistory(messages);
+      const history = await new Promise<any[]>(resolve => setTimeout(() => resolve(mapMessagesToHistory(messages)), 0));
 
       // 3. Identify Agent
       const targetAgent = task.assignedAgent || AgentType.OVERSEER;
@@ -204,7 +276,7 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                    responseImage = v.data;
                    break;
               case AgentType.DIRECTOR:
-                   const vi = await runDirectorAgent({ prompt: task.title, resolution: '720p', aspectRatio: '16:9' });
+                   const vi = await runDirectorAgent({ prompt: task.title, resolution: videoConfig.resolution, aspectRatio: videoConfig.aspectRatio, modelId: videoConfig.modelId });
                    responseText = "Sequence rendered.";
                    responseVideo = vi;
                    break;
@@ -245,15 +317,22 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
               metadata: { modelUsed: targetAgent }
           };
           
-          setMessages(prev => [...prev, completionMsg]);
+          dispatchMessages(prev => [...prev, completionMsg]);
           
+          // Learn from success
+          await memoryService.addMemory(`Task completed: ${task.title}. Output: ${responseText.substring(0, 100)}...`, 'interaction', ['task_success', targetAgent]);
+
           updateTaskInHistory(task.id, { 
               completed: true,
               output: responseText // Level 6.3: Store output
           });
 
       } catch (e: any) {
-           setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `Execution Fault: ${e.message}`, timestamp: Date.now() }]);
+           dispatchMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `Execution Fault: ${e.message}`, timestamp: Date.now() }]);
+           updateTaskInHistory(task.id, { 
+               status: 'failed',
+               output: `Error: ${e.message}`
+           });
       } finally {
           setExecutingTaskIds(prev => {
               const next = new Set(prev);
@@ -261,6 +340,20 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
               return next;
           });
       }
+  };
+
+  const handleSecurityResponse = (messageId: string, approved: boolean) => {
+      dispatchMessages(prev => prev.map(m => 
+          m.id === messageId && m.securityRequest 
+              ? { ...m, securityRequest: { ...m.securityRequest, status: approved ? 'approved' : 'rejected' } } 
+              : m
+      ));
+      
+      const responseText = approved 
+          ? `[System] The user has APPROVED the execution of the instructions from the source. Proceed with the task.`
+          : `[System] The user has REJECTED the execution of the instructions from the source. DO NOT execute them. Acknowledge and continue with alternative steps if possible.`;
+          
+      handleSend(responseText);
   };
 
   const handleSend = async (overrideText?: string) => {
@@ -274,7 +367,7 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
 
     const userMsg: Message = { id: Date.now().toString(), role: 'user', text: textToSend, inputAsset: inputAsset, timestamp: Date.now() };
     const updatedMessages = [...messages, userMsg];
-    setMessages(updatedMessages);
+    dispatchMessages(updatedMessages);
     setInput('');
     setIsChatGenerating(true);
 
@@ -346,7 +439,25 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
            if (audioData) responseAudio = audioData; responseText = "Speech generated."; break;
       }
 
-      const analysis = evaluateResponse(responseText, userMsg.text || '');
+      // Parse Security Alert
+      let securityRequest: any = undefined;
+      const securityMatch = responseText.match(/```json\s*({[\s\S]*?"security_alert":\s*true[\s\S]*?})\s*```/);
+      if (securityMatch) {
+          try {
+              const parsed = JSON.parse(securityMatch[1]);
+              securityRequest = {
+                  source: parsed.source,
+                  instructions: parsed.instructions,
+                  status: 'pending'
+              };
+              responseText = responseText.replace(securityMatch[0], '').trim();
+              if (!responseText) responseText = "⚠️ Security Alert: Potential prompt injection or unauthorized instructions detected in external content.";
+          } catch (e) {
+              console.error("Failed to parse security alert JSON", e);
+          }
+      }
+
+      const analysis = await evaluateResponseAsync(responseText, userMsg.text || '');
       const botMsg: Message = { 
           id: (Date.now() + 1).toString(), 
           role: 'model', 
@@ -361,12 +472,13 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
           isThinking: wasThinking, 
           qualityScore: analysis.score, 
           antiPatterns: analysis.issues, 
-          metadata: metadata 
+          metadata: metadata,
+          securityRequest: securityRequest
       };
-      setMessages(prev => [...prev, botMsg]);
+      dispatchMessages(prev => [...prev, botMsg]);
 
     } catch (e: any) {
-       setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `System Fault: ${e.message}`, timestamp: Date.now() }]);
+       dispatchMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `System Fault: ${e.message}`, timestamp: Date.now() }]);
     } finally {
       setIsChatGenerating(false);
       setConcurrencyCount(0);
@@ -375,7 +487,7 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
     }
   };
 
-  const activePanel = showNeuralCore ? 'core' : (showCanvas && activeArtifact) ? 'canvas' : null;
+  const activePanel = showNeuralCore ? 'core' : showVncViewer ? 'vnc' : (showCanvas && activeArtifact) ? 'canvas' : null;
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-zinc-50 dark:bg-[#050505] transition-colors duration-300">
@@ -400,7 +512,7 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
           <div className="relative flex flex-col h-full min-w-0 overflow-hidden">
               
               {/* 1. HEADER (Floating) */}
-              <div className="absolute top-0 left-0 right-0 z-30 p-4 flex justify-between items-start pointer-events-none">
+              <div className="absolute top-0 left-0 right-0 z-30 p-2 sm:p-4 pt-[max(0.5rem,env(safe-area-inset-top))] flex justify-between items-start pointer-events-none">
                   {/* Badge */}
                   <div className="pointer-events-auto bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-zinc-200 dark:border-white/10 px-3 py-2 sm:px-4 rounded-full shadow-lg flex items-center gap-3 animate-in slide-in-from-top-4 duration-700">
                       <div className={`w-2 h-2 rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)] ${isBusy ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></div>
@@ -427,9 +539,12 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                               </>
                           )}
                           
-                          <button onClick={() => { setShowNeuralCore(!showNeuralCore); if(!showNeuralCore) setShowCanvas(false); }} className={`p-2 rounded-full transition-all ${showNeuralCore ? 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-500/10' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title="Neural Core"><Cpu size={14}/></button>
+                          <button onClick={() => { setShowNeuralCore(!showNeuralCore); if(!showNeuralCore) { setShowCanvas(false); setShowVncViewer(false); } }} className={`p-2 rounded-full transition-all ${showNeuralCore ? 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-500/10' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title="Neural Core"><Cpu size={14}/></button>
+                          
+                          <button onClick={() => { setShowVncViewer(!showVncViewer); if(!showVncViewer) { setShowCanvas(false); setShowNeuralCore(false); } }} className={`p-2 rounded-full transition-all ${showVncViewer ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/10' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title="VNC Viewer"><Monitor size={14}/></button>
+
                           {(agent === AgentType.DEVELOPER || activeArtifact) && (
-                              <button onClick={() => { setShowCanvas(!showCanvas); if(!showCanvas) setShowNeuralCore(false); }} className={`p-2 rounded-full transition-all ${showCanvas ? 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/10' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title="Canvas"><MonitorPlay size={14}/></button>
+                              <button onClick={() => { setShowCanvas(!showCanvas); if(!showCanvas) { setShowNeuralCore(false); setShowVncViewer(false); } }} className={`p-2 rounded-full transition-all ${showCanvas ? 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/10' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title="Canvas"><MonitorPlay size={14}/></button>
                           )}
                           
                           <div className="w-px h-4 bg-zinc-300 dark:bg-white/10 mx-1"></div>
@@ -491,6 +606,7 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                                             message={m} 
                                             onExecuteTask={executeAgentTask}
                                             executingTaskIds={executingTaskIds}
+                                            onSecurityResponse={handleSecurityResponse}
                                         />
                                     ))}
                                  </div>
@@ -516,7 +632,7 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
 
               {/* 3. INPUT OMNI-BAR (Flex Item - Pinned Bottom) */}
               {agent !== AgentType.COMMUNICATOR && (
-                  <div className="flex-none z-40 px-4 pb-safe pt-2 bg-zinc-50/90 dark:bg-[#050505]/90 backdrop-blur-lg border-t border-zinc-200/50 dark:border-white/5 transition-all">
+                  <div className="flex-none z-40 px-2 sm:px-4 pb-2 sm:pb-[env(safe-area-inset-bottom)] pt-2 bg-zinc-50/90 dark:bg-[#050505]/90 backdrop-blur-lg border-t border-zinc-200/50 dark:border-white/5 transition-all">
                      
                      {/* DIRECTOR CONTROLS (Responsive) */}
                      {agent === AgentType.DIRECTOR && (
@@ -595,10 +711,10 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                                 value={input} 
                                 onChange={(e) => setInput(e.target.value)} 
                                 onKeyDown={(e) => e.key === 'Enter' && handleSend()} 
-                                placeholder={isListening ? "Listening..." : (attachedAsset ? "Asset attached. Add context..." : "Enter system directive...")}
-                                className="flex-1 bg-transparent border-none text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none px-2 font-light tracking-wide font-mono min-w-0"
+                                placeholder={isListening ? "Listening..." : isTranscribing ? "Transcribing..." : (attachedAsset ? "Asset attached. Add context..." : "Enter system directive...")}
+                                className="flex-1 bg-transparent border-none text-[16px] sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none px-2 font-light tracking-wide font-mono min-w-0"
                                 autoFocus 
-                                disabled={isChatGenerating}
+                                disabled={isChatGenerating || isTranscribing}
                              />
                             
                              <div className="flex items-center gap-1 shrink-0 ml-2">
@@ -654,7 +770,7 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
           </div>
 
           {/* --- RIGHT AREA: SIDE PANEL --- */}
-          {activePanel && (
+          {activePanel && activePanel !== 'vnc' && (
             <div className={`
                /* Mobile: Fixed Overlay */
                fixed inset-0 z-50 
@@ -669,6 +785,21 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                {activePanel === 'canvas' && activeArtifact && <CanvasPanel artifact={activeArtifact} onClose={() => setShowCanvas(false)} />}
             </div>
           )}
+          
+          {/* Persistent VNC Viewer Panel */}
+          <div className={`
+             /* Mobile: Fixed Overlay */
+             fixed inset-0 z-50 
+             /* Tablet+: Static Grid Item */
+             md:static md:z-auto md:inset-auto md:h-full
+             
+             border-l border-white/5 bg-white/95 dark:bg-black/95 md:bg-white/40 md:dark:bg-black/40 backdrop-blur-xl 
+             flex flex-col shadow-2xl md:shadow-none
+             transition-all duration-300
+             ${activePanel === 'vnc' ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full pointer-events-none hidden'}
+          `}>
+             <VncViewer onClose={() => setShowVncViewer(false)} />
+          </div>
 
       </div>
     </div>

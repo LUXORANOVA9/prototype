@@ -1,6 +1,6 @@
 import React from 'react';
 import { AuditReport, AuditFinding } from '../types';
-import { ShieldAlert, AlertTriangle, CheckCircle2, Info, Activity, Server, AlertOctagon, Wrench } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, CircleCheck, Info, Activity, Server, AlertOctagon, Wrench } from 'lucide-react';
 
 interface Props {
   report: AuditReport;
@@ -77,7 +77,7 @@ export const AuditReportCard: React.FC<Props> = ({ report }) => {
             
             {report.findings.length === 0 ? (
                 <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500 text-xs p-3 bg-emerald-50 dark:bg-emerald-900/10 rounded-lg border border-emerald-200 dark:border-emerald-900/20">
-                    <CheckCircle2 size={16} />
+                    <CircleCheck size={16} />
                     <span>No critical issues detected. System operational.</span>
                 </div>
             ) : (

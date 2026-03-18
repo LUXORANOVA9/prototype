@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Task, AgentType } from '../types';
 import { 
-  CheckCircle2, 
+  CircleCheck, 
   Circle, 
   ChevronDown, 
   Plus, 
@@ -35,7 +35,8 @@ import {
   FileText,
   Link,
   ListChecks,
-  GitCommit
+  GitCommit,
+  AlertTriangle
 } from 'lucide-react';
 
 interface Props {
@@ -137,9 +138,11 @@ export const TaskBoard: React.FC<Props> = ({
 
   const getTaskStatus = (task: Task, isBlocked: boolean, isExecuting: boolean) => {
       if (isExecuting) return { label: 'EXECUTING', color: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-500/50', bg: 'bg-cyan-50 dark:bg-cyan-950/20', icon: Loader2, shadow: 'shadow-[0_0_15px_rgba(6,182,212,0.2)]' };
-      if (task.completed) return { label: 'COMPLETE', color: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-50 dark:bg-emerald-950/10', icon: CheckCircle2, shadow: 'shadow-[0_0_15px_rgba(16,185,129,0.1)]' };
-      if (isBlocked) return { label: 'LOCKED', color: 'text-zinc-500', border: 'border-zinc-200 dark:border-zinc-800', bg: 'bg-zinc-100/80 dark:bg-zinc-950/50', icon: Lock, shadow: '' };
-      if (task.subtasks.some(s => s.completed) || task.isParallel) return { label: 'ACTIVE', color: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-50 dark:bg-amber-950/10', icon: Activity, shadow: 'shadow-[0_0_15px_rgba(245,158,11,0.1)]' };
+      if (task.status === 'failed') return { label: 'FAILED', color: 'text-red-600 dark:text-red-400', border: 'border-red-500/50', bg: 'bg-red-50 dark:bg-red-950/20', icon: AlertTriangle, shadow: 'shadow-[0_0_15px_rgba(220,38,38,0.2)]' };
+      if (task.completed) return { label: 'COMPLETE', color: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-50 dark:bg-emerald-950/10', icon: CircleCheck, shadow: 'shadow-[0_0_15px_rgba(16,185,129,0.1)]' };
+      if (isBlocked) return { label: 'BLOCKED', color: 'text-rose-500 dark:text-rose-400', border: 'border-rose-200 dark:border-rose-900/50', bg: 'bg-rose-50 dark:bg-rose-950/20', icon: Lock, shadow: '' };
+      if (task.isParallel && !isBlocked && !isExecuting && !task.completed) return { label: 'PARALLEL READY', color: 'text-violet-600 dark:text-violet-400', border: 'border-violet-500/50', bg: 'bg-violet-50 dark:bg-violet-950/20', icon: GitBranch, shadow: 'shadow-[0_0_15px_rgba(139,92,246,0.2)]' };
+      if ((task.subtasks || []).some(s => s.completed)) return { label: 'IN PROGRESS', color: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-50 dark:bg-amber-950/10', icon: Activity, shadow: 'shadow-[0_0_15px_rgba(245,158,11,0.1)]' };
       return { label: 'PENDING', color: 'text-zinc-500 dark:text-zinc-400', border: 'border-zinc-200 dark:border-white/5', bg: 'bg-zinc-50 dark:bg-zinc-900/40', icon: Circle, shadow: '' };
   };
 
@@ -176,7 +179,7 @@ export const TaskBoard: React.FC<Props> = ({
             {pendingParallelTasks.length > 1 && onExecuteTask ? (
                 <button 
                     onClick={handleRunParallel}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-cyan-100 dark:bg-cyan-950/40 border border-cyan-500/30 rounded text-[9px] font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider hover:bg-cyan-200 dark:hover:bg-cyan-900/60 transition-all shadow-[0_0_10px_rgba(6,182,212,0.3)] animate-pulse"
+                    className="flex items-center gap-1.5 px-3 py-1 bg-violet-100 dark:bg-violet-950/40 border border-violet-500/30 rounded text-[9px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider hover:bg-violet-200 dark:hover:bg-violet-900/60 transition-all shadow-[0_0_10px_rgba(139,92,246,0.3)] animate-pulse"
                 >
                     <Zap size={10} className="fill-current"/> Auto-Run Parallel ({pendingParallelTasks.length})
                 </button>
@@ -196,8 +199,8 @@ export const TaskBoard: React.FC<Props> = ({
       <div className="p-3 max-h-[60vh] overflow-y-auto custom-scrollbar relative">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {tasks.map(task => {
-            const subtaskCount = task.subtasks.length;
-            const completedSubtasks = task.subtasks.filter(t => t.completed).length;
+            const subtaskCount = (task.subtasks || []).length;
+            const completedSubtasks = (task.subtasks || []).filter(t => t.completed).length;
             const unmetDeps = getUnmetDependencies(task);
             const isBlocked = unmetDeps.length > 0;
             const isExpanded = expandedTasks[task.id];
@@ -205,6 +208,7 @@ export const TaskBoard: React.FC<Props> = ({
             const status = getTaskStatus(task, isBlocked, isExecuting);
             const StatusIcon = status.icon;
             const subtaskPercent = subtaskCount > 0 ? (completedSubtasks / subtaskCount) * 100 : 0;
+            const hasDependencies = (task.dependencies || []).length > 0;
             
             const AssignedIcon = task.assignedAgent ? AGENT_ICONS[task.assignedAgent] : Circle;
 
@@ -216,7 +220,7 @@ export const TaskBoard: React.FC<Props> = ({
               >
                 {/* Visual Blocked Overlay Pattern */}
                 {isBlocked && (
-                    <div className="absolute inset-0 bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(0,0,0,0.03)_5px,rgba(0,0,0,0.03)_10px)] dark:bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(255,255,255,0.02)_5px,rgba(255,255,255,0.02)_10px)] pointer-events-none z-0"></div>
+                    <div className="absolute inset-0 bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(244,63,94,0.05)_5px,rgba(244,63,94,0.05)_10px)] dark:bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(244,63,94,0.05)_5px,rgba(244,63,94,0.05)_10px)] pointer-events-none z-0"></div>
                 )}
 
                 {/* Executing Pulse Overlay */}
@@ -230,7 +234,7 @@ export const TaskBoard: React.FC<Props> = ({
                         <button 
                           disabled={isBlocked || isExecuting} 
                           onClick={(e) => { e.stopPropagation(); if (!isBlocked) onToggleTask(task.id); }} 
-                          className={`mt-0.5 shrink-0 w-5 h-5 flex items-center justify-center rounded-md transition-all duration-300 shadow-sm ${task.completed ? 'bg-emerald-500 text-white dark:text-black shadow-[0_0_8px_rgba(16,185,129,0.4)]' : (isBlocked ? 'bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-600 cursor-not-allowed' : 'bg-white dark:bg-black/20 border border-zinc-300 dark:border-zinc-600 hover:border-amber-500 text-transparent hover:text-amber-500/50')}`}
+                          className={`mt-0.5 shrink-0 w-5 h-5 flex items-center justify-center rounded-md transition-all duration-300 shadow-sm ${task.completed ? 'bg-emerald-500 text-white dark:text-black shadow-[0_0_8px_rgba(16,185,129,0.4)]' : (isBlocked ? 'bg-rose-100 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800 text-rose-400 dark:text-rose-500 cursor-not-allowed' : 'bg-white dark:bg-black/20 border border-zinc-300 dark:border-zinc-600 hover:border-amber-500 text-transparent hover:text-amber-500/50')}`}
                         >
                            {isExecuting ? <Loader2 size={12} className="animate-spin text-cyan-500"/> : isBlocked ? <Lock size={10} /> : <Check size={12} strokeWidth={4} />}
                         </button>
@@ -240,6 +244,18 @@ export const TaskBoard: React.FC<Props> = ({
                             <div className="flex items-center justify-between gap-2 mb-1.5">
                                 <span className={`text-xs font-bold tracking-wide transition-all ${task.completed ? 'text-zinc-400 dark:text-zinc-500 line-through' : (isBlocked ? 'text-zinc-500' : 'text-zinc-800 dark:text-zinc-200')}`}>{task.title}</span>
                                 <div className="flex items-center gap-1.5">
+                                    {/* Indicators */}
+                                    {task.isParallel && (
+                                        <div className="p-1 rounded bg-violet-100 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-400" title="Parallel Execution Enabled">
+                                            <GitBranch size={10} />
+                                        </div>
+                                    )}
+                                    {hasDependencies && (
+                                        <div className={`p-1 rounded border flex items-center gap-1 ${isBlocked ? 'bg-rose-100 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400' : 'bg-zinc-100 dark:bg-white/5 border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-zinc-400'}`} title={`${task.dependencies?.length} Dependencies`}>
+                                            <Link size={10} />
+                                            <span className="text-[8px] font-mono">{task.dependencies?.length}</span>
+                                        </div>
+                                    )}
                                     {task.assignedAgent && (
                                         <div className="p-1 rounded bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-zinc-400" title={`Assigned to ${task.assignedAgent}`}>
                                             <AssignedIcon size={10} />
@@ -273,7 +289,7 @@ export const TaskBoard: React.FC<Props> = ({
                                     {/* Segmented vs Continuous Bar */}
                                     {subtaskCount <= 15 ? (
                                         <div className="flex gap-0.5 h-1 w-full mt-1.5">
-                                            {task.subtasks.map((st, i) => (
+                                            {(task.subtasks || []).map((st, i) => (
                                                 <div key={i} className={`flex-1 rounded-full transition-colors duration-300 ${st.completed ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-800'}`}></div>
                                             ))}
                                         </div>
@@ -286,16 +302,16 @@ export const TaskBoard: React.FC<Props> = ({
                             )}
 
                             {task.isParallel && !subtaskCount && (
-                                <div className="mt-1 text-[9px] text-cyan-600 dark:text-cyan-500 font-mono flex items-center gap-1 uppercase tracking-wider">
-                                    <Zap size={8}/> Async Ready
+                                <div className="mt-1 text-[9px] text-violet-600 dark:text-violet-500 font-mono flex items-center gap-1 uppercase tracking-wider">
+                                    <GitBranch size={8}/> Parallel Execution Enabled
                                 </div>
                             )}
 
                             {/* Blocked Warning - Dependency Graph Style */}
                             {isBlocked && (
-                                <div className="mt-3 pl-3 py-1 border-l-[1.5px] border-amber-500/30">
-                                    <div className="text-[9px] text-amber-600 dark:text-amber-500/70 font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                        <GitCommit size={10} /> Dependency Chain
+                                <div className="mt-3 pl-3 py-1 border-l-[1.5px] border-rose-500/30">
+                                    <div className="text-[9px] text-rose-600 dark:text-rose-500/90 font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                        <Lock size={10} /> Blocked by Dependencies
                                     </div>
                                     <div className="flex flex-col gap-1.5 relative">
                                         {/* Faint connecting line behind items */}
@@ -305,10 +321,10 @@ export const TaskBoard: React.FC<Props> = ({
                                                 <div className="mt-1 bg-zinc-50 dark:bg-black/50 p-0.5 rounded-full"><CornerDownRight size={10} className="text-zinc-400 dark:text-zinc-600" /></div>
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); scrollToTask(d.id); }}
-                                                    className="flex-1 text-left flex items-center justify-between p-2 bg-white dark:bg-zinc-900/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:border-amber-500/30 transition-all shadow-sm"
+                                                    className="flex-1 text-left flex items-center justify-between p-2 bg-white dark:bg-zinc-900/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:border-rose-500/30 transition-all shadow-sm"
                                                 >
                                                     <span className="text-[10px] text-zinc-600 dark:text-zinc-400 group-hover/dep:text-zinc-900 dark:group-hover/dep:text-zinc-200 truncate pr-2">{d.title}</span>
-                                                    <span className="text-[8px] px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded text-zinc-500 group-hover/dep:bg-amber-500/10 group-hover/dep:text-amber-600 dark:group-hover/dep:text-amber-500 font-mono shrink-0">PENDING</span>
+                                                    <span className="text-[8px] px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded text-zinc-500 group-hover/dep:bg-rose-500/10 group-hover/dep:text-rose-600 dark:group-hover/dep:text-rose-500 font-mono shrink-0">PENDING</span>
                                                 </button>
                                             </div>
                                         ))}
@@ -317,11 +333,12 @@ export const TaskBoard: React.FC<Props> = ({
                             )}
 
                             {/* Execution Result Log */}
-                            {task.completed && task.output && (
-                                <div className="mt-2 bg-zinc-100 dark:bg-black/50 border border-zinc-200 dark:border-zinc-800 rounded-lg p-2.5">
+                            {(task.completed || task.status === 'failed') && task.output && (
+                                <div className={`mt-2 rounded-lg p-2.5 border ${task.status === 'failed' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50' : 'bg-zinc-100 dark:bg-black/50 border-zinc-200 dark:border-zinc-800'}`}>
                                     <div className="flex items-center justify-between mb-1.5">
-                                        <span className="text-[9px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-                                            <FileText size={10} /> Execution Log
+                                        <span className={`text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 ${task.status === 'failed' ? 'text-red-600 dark:text-red-400' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                                            {task.status === 'failed' ? <AlertTriangle size={10} /> : <FileText size={10} />} 
+                                            {task.status === 'failed' ? 'Error Log' : 'Execution Log'}
                                         </span>
                                         {onExecuteTask && !isExecuting && (
                                             <button 
@@ -333,14 +350,14 @@ export const TaskBoard: React.FC<Props> = ({
                                             </button>
                                         )}
                                     </div>
-                                    <div className="text-[10px] font-mono text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap leading-tight max-h-32 overflow-y-auto custom-scrollbar opacity-90">
+                                    <div className={`text-[10px] font-mono whitespace-pre-wrap leading-tight max-h-32 overflow-y-auto custom-scrollbar opacity-90 ${task.status === 'failed' ? 'text-red-700 dark:text-red-300' : 'text-zinc-700 dark:text-zinc-300'}`}>
                                         {task.output.length > 250 ? task.output.substring(0, 250) + "..." : task.output}
                                     </div>
                                 </div>
                             )}
 
                             {/* Auto-Pilot Executor */}
-                            {!isBlocked && !task.completed && onExecuteTask && !isExecuting && (
+                            {!isBlocked && !task.completed && task.status !== 'failed' && onExecuteTask && !isExecuting && (
                                <div className="mt-3 flex">
                                    <button 
                                       onClick={(e) => { e.stopPropagation(); onExecuteTask(task); }}
@@ -386,7 +403,7 @@ export const TaskBoard: React.FC<Props> = ({
                                                           <Circle size={8} className={isDep ? "text-amber-500 fill-current" : "text-zinc-300 dark:text-zinc-700"} /> 
                                                           {t.title}
                                                       </span>
-                                                      {isDep && <CheckCircle2 size={10} className="text-amber-500" />}
+                                                      {isDep && <CircleCheck size={10} className="text-amber-500" />}
                                                   </button>
                                               )
                                          })}
@@ -396,7 +413,7 @@ export const TaskBoard: React.FC<Props> = ({
 
                              {/* Subtasks List */}
                              <div className="space-y-1">
-                                 {task.subtasks.map(subtask => (
+                                 {(task.subtasks || []).map(subtask => (
                                      <div key={subtask.id} className="flex items-center gap-2 group/sub py-1 px-2 rounded-md hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors">
                                          <button disabled={isBlocked} onClick={() => !isBlocked && onToggleSubTask(task.id, subtask.id)} className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${subtask.completed ? 'bg-emerald-500 border-emerald-500 text-white dark:text-black' : (isBlocked ? 'border-zinc-300 dark:border-zinc-800 bg-zinc-200 dark:bg-zinc-900' : 'border-zinc-300 dark:border-zinc-600 bg-white dark:bg-black hover:border-amber-500')}`}>
                                              {subtask.completed && <Check size={8} strokeWidth={4} />}
@@ -430,9 +447,9 @@ export const TaskBoard: React.FC<Props> = ({
 
           {onAddTask && (
             <div className="col-span-1 md:col-span-2 flex items-center gap-3 px-4 py-3 border border-dashed border-zinc-300 dark:border-white/10 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/[0.02] transition-colors group/new">
-               <div className="w-5 h-5 rounded-md border border-zinc-300 dark:border-zinc-700 flex items-center justify-center text-zinc-400 group-hover/new:text-amber-500 group-hover/new:border-amber-500/50 transition-all">
+               <button onClick={handleAddTaskSubmit} className="w-5 h-5 rounded-md border border-zinc-300 dark:border-zinc-700 flex items-center justify-center text-zinc-400 hover:text-amber-500 hover:border-amber-500/50 transition-all">
                    <Plus size={12} />
-               </div>
+               </button>
                <input 
                   type="text" 
                   value={newTaskInput} 

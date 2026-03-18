@@ -40,6 +40,13 @@ class McpClientService {
     const id = `sse-${Date.now()}`;
     const transport = new SseTransport(url);
     await this.registerConnection(id, transport);
+    
+    const conn = this.connections.get(id);
+    if (conn && conn.status === 'error') {
+        this.connections.delete(id);
+        throw new Error(conn.error || "Failed to connect");
+    }
+    
     return id;
   }
 
@@ -98,7 +105,7 @@ class McpClientService {
       console.log(`[MCP Client] Registered connection ${id} with ${tools.length} tools.`);
 
     } catch (e: any) {
-      console.error(`[MCP Client] Failed to register connection ${id}:`, e);
+      console.warn(`[MCP Client] Failed to register connection ${id}:`, e.message);
       this.connections.set(id, {
         id,
         transport,

@@ -32,6 +32,15 @@ export const VIDEO_MODELS: VideoModel[] = [
     apiPath: 'veo-3.1-fast-generate-preview'
   },
   {
+    id: 'veo-3.1-generate-preview',
+    name: 'Veo High Quality',
+    provider: 'google',
+    tier: 3,
+    capabilities: ['t2v', 'i2v'],
+    description: 'Google Veo High Quality. Requires paid API key.',
+    apiPath: 'veo-3.1-generate-preview'
+  },
+  {
     id: 'stabilityai/stable-video-diffusion-img2vid-xt-1-1',
     name: 'Stable Video Diffusion (SVD)',
     provider: 'huggingface',
@@ -140,9 +149,6 @@ export const generateVideo = async (config: VideoGenerationConfig, modelId?: str
 };
 
 const runGoogleVideoGeneration = async (config: VideoGenerationConfig, model: VideoModel): Promise<{ uri: string, provider: string }> => {
-    const apiKey = mcpRouter.getUniversalKey();
-    if (!apiKey) throw new Error("Google API Key missing for Veo.");
-    
     // Check for Paid Key selection via window.aistudio if available (as per Veo docs requirement in some envs)
     if ((window as any).aistudio) {
         try {
@@ -154,6 +160,10 @@ const runGoogleVideoGeneration = async (config: VideoGenerationConfig, model: Vi
             console.warn("AIStudio key selection check skipped", e);
         }
     }
+
+    // Re-fetch key after potential selection to ensure we have the latest one
+    const apiKey = mcpRouter.getUniversalKey();
+    if (!apiKey) throw new Error("Google API Key missing for Veo. Please select a paid key.");
 
     // Always create new instance to pick up potentially new key
     const ai = new GoogleGenAI({ apiKey });
@@ -195,8 +205,22 @@ const runGoogleVideoGeneration = async (config: VideoGenerationConfig, model: Vi
     const video = operation.response?.generatedVideos?.[0]?.video;
     if (!video?.uri) throw new Error("Veo generation failed to return URI.");
     
-    // Append key for download access if required by API pattern
-    return { uri: `${video.uri}&key=${apiKey}`, provider: 'google' };
+    // Fetch the video with the API key
+    const videoResponse = await fetch(video.uri, {
+        method: 'GET',
+        headers: {
+            'x-goog-api-key': apiKey,
+        },
+    });
+
+    if (!videoResponse.ok) {
+        throw new Error(`Failed to download video: ${videoResponse.statusText}`);
+    }
+
+    const blob = await videoResponse.blob();
+    const videoUrl = URL.createObjectURL(blob);
+
+    return { uri: videoUrl, provider: 'google' };
 }
 
 const runHuggingFaceGeneration = async (config: VideoGenerationConfig, model: VideoModel): Promise<{ uri: string, provider: string }> => {

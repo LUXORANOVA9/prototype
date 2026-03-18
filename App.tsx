@@ -4,6 +4,7 @@ import { AgentSelector } from './components/AgentSelector';
 import { AgentWorkstation } from './components/AgentWorkstation';
 import { McpPanel } from './components/McpPanel';
 import { AlertTriangle, Loader2 } from 'lucide-react';
+import { mcpClient } from './services/mcpClient';
 
 // Lazy load LandingPage to isolate heavy 3D dependencies
 const LandingPage = React.lazy(() => import('./components/LandingPage'));
@@ -60,6 +61,36 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
+const GlobalStyles = () => (
+  <style dangerouslySetInnerHTML={{ __html: `
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=Source+Serif+4:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&display=swap');
+
+    :root {
+      --white: hsl(0 0% 100%);
+      --white-80: hsla(0,0%,100%,0.80);
+      --white-60: hsla(0,0%,100%,0.60);
+      --white-50: hsla(0,0%,100%,0.50);
+      --white-30: hsla(0,0%,100%,0.30);
+      --white-15: hsla(0,0%,100%,0.15);
+      --white-10: hsla(0,0%,100%,0.10);
+      --white-05: hsla(0,0%,100%,0.05);
+      --white-01: hsla(0,0%,100%,0.01);
+      --font-display: 'Source Serif 4', serif;
+      --font-body: 'Poppins', sans-serif;
+    }
+
+    /* Liquid Glass */
+    .liquid-glass { background: rgba(255,255,255,0.01); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); border: none; box-shadow: inset 0 1px 1px rgba(255,255,255,0.10); position: relative; overflow: hidden; }
+    .liquid-glass::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1.4px; background: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.15) 20%, transparent 40%, transparent 60%, rgba(255,255,255,0.15) 80%, rgba(255,255,255,0.45) 100%); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+    .liquid-glass-strong { backdrop-filter: blur(50px); -webkit-backdrop-filter: blur(50px); box-shadow: 4px 4px 4px rgba(0,0,0,0.05), inset 0 1px 1px rgba(255,255,255,0.15); }
+    .liquid-glass-strong::before { background: linear-gradient(180deg, rgba(255,255,255,0.50) 0%, rgba(255,255,255,0.20) 20%, transparent 40%, transparent 60%, rgba(255,255,255,0.20) 80%, rgba(255,255,255,0.50) 100%); }
+
+    /* Animations */
+    @keyframes fade-rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-fade-rise { animation: fade-rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+  `}} />
+);
+
 const AppContent: React.FC = () => {
   const [activeAgent, setActiveAgent] = useState<AgentType>(AgentType.OVERSEER);
   const [isMcpOpen, setIsMcpOpen] = useState(false);
@@ -68,6 +99,15 @@ const AppContent: React.FC = () => {
   // Launch State
   const [hasLaunched, setHasLaunched] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
+
+  // Auto-connect MCP
+  useEffect(() => {
+    const lastSse = localStorage.getItem('luxor9_mcp_sse_url');
+    if (lastSse && !mcpClient.isSseConnected(lastSse)) {
+        mcpClient.connectSse(lastSse).catch(e => console.warn("Auto-reconnect failed", e));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Initialize theme
   useEffect(() => {
@@ -172,6 +212,7 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <ErrorBoundary>
+      <GlobalStyles />
       <AppContent />
     </ErrorBoundary>
   );

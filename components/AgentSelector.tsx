@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { AgentStatus, AgentType } from '../types';
-import { Eye, Brain, Video, Mic, MapPin, Zap, Server, Settings, AlertCircle, Globe, Users, Wrench, BarChart3, Terminal, Layers, Command, Cpu, Network, Sun, Moon } from 'lucide-react';
+import { Eye, Brain, Video, Mic, MapPin, Zap, Server, Settings, AlertCircle, Globe, Users, Wrench, BarChart3, Terminal, Layers, Command, Cpu, Network, Sun, Moon, Circle, ChevronDown } from 'lucide-react';
 import { mcpRouter } from '../services/mcpRouter';
+import agentGroupsData from '../public/agents.json';
 
 interface Props {
   activeAgent: AgentType;
@@ -11,52 +12,145 @@ interface Props {
   onToggleTheme: () => void;
 }
 
-const AGENT_GROUPS = [
-    {
-        label: 'EXECUTIVE',
-        color: 'text-amber-500',
-        agents: [
-            { id: AgentType.OVERSEER, name: 'Overseer', description: 'Orchestration Core', icon: Brain },
-        ]
-    },
-    {
-        label: 'MANAGEMENT',
-        color: 'text-blue-400',
-        agents: [
-            { id: AgentType.HR_MANAGER, name: 'HR Manager', description: 'Talent Acquisition', icon: Users },
-            { id: AgentType.INTEGRATION_LEAD, name: 'Integration', description: 'Tooling & API', icon: Wrench },
-        ]
-    },
-    {
-        label: 'SPECIALIST',
-        color: 'text-purple-400',
-        agents: [
-            { id: AgentType.RESEARCHER, name: 'Researcher', description: 'Web Intelligence', icon: Globe },
-            { id: AgentType.DATA_ANALYST, name: 'Data Analyst', description: 'Pattern Recognition', icon: BarChart3 },
-            { id: AgentType.VISIONARY, name: 'Visionary', description: 'Visual Cortex', icon: Eye },
-            { id: AgentType.DIRECTOR, name: 'Director', description: 'Video Production', icon: Video },
-            { id: AgentType.NAVIGATOR, name: 'Navigator', description: 'Geospatial Data', icon: MapPin },
-        ]
-    },
-    {
-        label: 'OPERATIONS',
-        color: 'text-emerald-400',
-        agents: [
-            { id: AgentType.DEVELOPER, name: 'Developer', description: 'Code Execution', icon: Terminal },
-            { id: AgentType.ANTIGRAVITY, name: 'Antigravity', description: 'Infrastructure', icon: Server },
-            { id: AgentType.SPEEDSTER, name: 'Speedster', description: 'Low Latency Ops', icon: Zap },
-            { id: AgentType.COMMUNICATOR, name: 'Communicator', description: 'Voice/Live Interface', icon: Mic },
-        ]
-    }
-];
+const ICON_MAP: Record<string, React.ElementType> = {
+    Eye, Brain, Video, Mic, MapPin, Zap, Server, Settings, AlertCircle, Globe, Users, Wrench, BarChart3, Terminal, Layers, Command, Cpu, Network, Sun, Moon
+};
+
+interface AgentConfig {
+    id: AgentType;
+    name: string;
+    description: string;
+    icon: string;
+    subGroups?: AgentGroupConfig[];
+}
+
+interface AgentGroupConfig {
+    label: string;
+    color?: string;
+    agents: AgentConfig[];
+}
+
+const ParticleSystem: React.FC<{ isHovered: boolean }> = ({ isHovered }) => {
+  // Generate a fixed number of particles
+  const particles = Array.from({ length: 15 }).map((_, i) => ({
+    id: i,
+    size: Math.random() * 3 + 1,
+    left: Math.random() * 100,
+    top: Math.random() * 100,
+    animationDuration: Math.random() * 3 + 2,
+    animationDelay: Math.random() * 2,
+  }));
+
+  return (
+    <div 
+      className={`absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-700 z-0 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+    >
+      {particles.map(p => (
+        <div
+          key={p.id}
+          className="absolute rounded-full bg-amber-500/40 dark:bg-amber-400/30"
+          style={{
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            left: `${p.left}%`,
+            top: `${p.top}%`,
+            animation: isHovered ? `float ${p.animationDuration}s ease-in-out ${p.animationDelay}s infinite alternate` : 'none',
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+const AgentItem: React.FC<{
+    agent: AgentConfig;
+    activeAgent: AgentType;
+    onSelect: (agent: AgentType) => void;
+    level: number;
+}> = ({ agent, activeAgent, onSelect, level }) => {
+    const Icon = ICON_MAP[agent.icon] || Circle;
+    const isActive = activeAgent === agent.id;
+    const [isExpanded, setIsExpanded] = useState(true);
+
+    return (
+        <div className="flex flex-col">
+            <button
+                onClick={() => onSelect(agent.id)}
+                className={`
+                    relative flex items-center gap-3 p-2.5 rounded-sm transition-all duration-200 group/btn
+                    border border-transparent
+                    ${isActive 
+                        ? 'bg-zinc-200 dark:bg-zinc-900 border-zinc-300 dark:border-white/10 text-zinc-900 dark:text-zinc-100 shadow-sm' 
+                        : 'hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
+                    }
+                `}
+                style={{ marginLeft: `${level * 12}px` }}
+            >
+                {isActive && (
+                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-amber-500"></div>
+                )}
+                
+                <div className={`p-1.5 rounded transition-colors relative z-10 ${isActive ? 'text-amber-600 dark:text-amber-500' : 'text-current opacity-70 group-hover/btn:opacity-100'}`}>
+                    <Icon size={16} />
+                </div>
+                
+                <div className="flex flex-col items-start relative z-10 flex-1">
+                    <span className={`text-xs font-bold tracking-wide transition-colors ${isActive ? 'text-zinc-900 dark:text-white' : 'text-zinc-600 dark:text-zinc-400'}`}>{agent.name}</span>
+                </div>
+
+                {agent.subGroups && (
+                    <div 
+                        onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+                        className="p-1 hover:bg-zinc-200 dark:hover:bg-white/10 rounded transition-colors"
+                    >
+                        <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'}`} />
+                    </div>
+                )}
+            </button>
+
+            {agent.subGroups && isExpanded && (
+                <div className="flex flex-col mt-1 relative">
+                    {/* Hierarchy Line */}
+                    <div 
+                        className="absolute left-0 top-0 bottom-4 w-px bg-zinc-200 dark:bg-white/5"
+                        style={{ marginLeft: `${(level * 12) + 16}px` }}
+                    ></div>
+
+                    {agent.subGroups.map((group, gIdx) => (
+                        <div key={gIdx} className="flex flex-col mb-2">
+                            <div 
+                                className="px-3 py-1 text-[8px] font-bold text-zinc-400 dark:text-zinc-600 tracking-[0.2em] font-mono flex items-center gap-2 mb-1 opacity-50"
+                                style={{ marginLeft: `${(level + 1) * 12}px` }}
+                            >
+                                {group.label}
+                            </div>
+                            {group.agents.map(subAgent => (
+                                <AgentItem 
+                                    key={subAgent.id} 
+                                    agent={subAgent} 
+                                    activeAgent={activeAgent} 
+                                    onSelect={onSelect} 
+                                    level={level + 1}
+                                />
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 export const AgentSelector: React.FC<Props> = ({ activeAgent, onSelect, onOpenMcp, isDarkMode, onToggleTheme }) => {
   const [backendHealth, setBackendHealth] = useState<'ok' | 'checking' | 'down'>('checking');
+  const [isHovered, setIsHovered] = useState(false);
+  const [agentGroups, setAgentGroups] = useState<AgentGroupConfig[]>(agentGroupsData as AgentGroupConfig[]);
   
   useEffect(() => {
       const checkHealth = async () => {
           try {
-              const res = await fetch('http://localhost:8080/health').catch(() => null);
+              const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+              const res = await fetch(`http://${host}:8080/health`).catch(() => null);
               if (res && res.ok) {
                   setBackendHealth('ok');
               } else {
@@ -75,7 +169,12 @@ export const AgentSelector: React.FC<Props> = ({ activeAgent, onSelect, onOpenMc
   const isOnline = isKeyConfigured;
 
   return (
-    <div className="w-full h-16 md:h-full md:w-[280px] bg-zinc-50/80 dark:bg-[#050505] md:border-r border-t md:border-t-0 border-zinc-200 dark:border-white/5 flex md:flex-col flex-row shrink-0 overflow-hidden relative z-40 select-none shadow-sm dark:shadow-none transition-colors duration-300">
+    <div 
+      className="w-full h-auto min-h-16 pb-[env(safe-area-inset-bottom)] md:pb-0 md:h-full md:w-[280px] bg-zinc-50/80 dark:bg-[#050505] md:border-r border-t md:border-t-0 border-zinc-200 dark:border-white/5 flex md:flex-col flex-row shrink-0 overflow-hidden relative z-40 select-none shadow-sm dark:shadow-none transition-colors duration-300"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <ParticleSystem isHovered={isHovered} />
       
       {/* Brand Header */}
       <div className="hidden md:flex p-6 pb-2 items-center gap-4 mb-2 relative group cursor-pointer" onClick={onOpenMcp}>
@@ -100,8 +199,20 @@ export const AgentSelector: React.FC<Props> = ({ activeAgent, onSelect, onOpenMc
           
           {/* Mobile Horizontal Scroll with Snap */}
           <div className="flex-1 flex md:hidden flex-row overflow-x-auto no-scrollbar items-center px-4 gap-3 snap-x snap-mandatory py-2">
-              {AGENT_GROUPS.flatMap(g => g.agents).map(agent => {
-                   const Icon = agent.icon;
+              {agentGroups.flatMap(g => {
+                  const allAgents: AgentConfig[] = [];
+                  const collect = (agents: AgentConfig[]) => {
+                      agents.forEach(a => {
+                          allAgents.push(a);
+                          if (a.subGroups) {
+                              a.subGroups.forEach(sg => collect(sg.agents));
+                          }
+                      });
+                  };
+                  collect(g.agents);
+                  return allAgents;
+              }).map(agent => {
+                   const Icon = ICON_MAP[agent.icon] || Circle;
                    const isActive = activeAgent === agent.id;
                    return (
                        <button 
@@ -123,46 +234,26 @@ export const AgentSelector: React.FC<Props> = ({ activeAgent, onSelect, onOpenMc
           </div>
 
           {/* Desktop Vertical Groups */}
-          {AGENT_GROUPS.map((group, idx) => (
-              <div key={idx} className="hidden md:flex flex-col gap-1">
-                  <div className="px-3 py-1 text-[9px] font-bold text-zinc-400 dark:text-zinc-600 tracking-[0.2em] font-mono flex items-center gap-2 mb-1 opacity-70">
-                      <div className="w-1 h-1 rounded-full bg-zinc-400 dark:bg-zinc-700"></div>
-                      {group.label}
-                  </div>
-                  
-                  {group.agents.map(agent => {
-                      const Icon = agent.icon;
-                      const isActive = activeAgent === agent.id;
-                      
-                      return (
-                          <button
-                              key={agent.id}
-                              onClick={() => onSelect(agent.id)}
-                              className={`
-                                  relative flex items-center gap-3 p-2.5 rounded-sm transition-all duration-200 group/btn
-                                  border border-transparent
-                                  ${isActive 
-                                      ? 'bg-zinc-200 dark:bg-zinc-900 border-zinc-300 dark:border-white/10 text-zinc-900 dark:text-zinc-100 shadow-sm' 
-                                      : 'hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
-                                  }
-                              `}
-                          >
-                              {isActive && (
-                                  <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-amber-500"></div>
-                              )}
-                              
-                              <div className={`p-1.5 rounded transition-colors relative z-10 ${isActive ? 'text-amber-600 dark:text-amber-500' : 'text-current opacity-70 group-hover/btn:opacity-100'}`}>
-                                  <Icon size={16} />
-                              </div>
-                              
-                              <div className="flex flex-col items-start relative z-10">
-                                  <span className={`text-xs font-bold tracking-wide transition-colors ${isActive ? 'text-zinc-900 dark:text-white' : 'text-zinc-600 dark:text-zinc-400'}`}>{agent.name}</span>
-                              </div>
-                          </button>
-                      );
-                  })}
-              </div>
-          ))}
+          <div className="hidden md:flex flex-col gap-6">
+            {agentGroups.map((group, idx) => (
+                <div key={idx} className="flex flex-col gap-1">
+                    <div className="px-3 py-1 text-[9px] font-bold text-zinc-400 dark:text-zinc-600 tracking-[0.2em] font-mono flex items-center gap-2 mb-1 opacity-70">
+                        <div className="w-1 h-1 rounded-full bg-zinc-400 dark:bg-zinc-700"></div>
+                        {group.label}
+                    </div>
+                    
+                    {group.agents.map(agent => (
+                        <AgentItem 
+                            key={agent.id} 
+                            agent={agent} 
+                            activeAgent={activeAgent} 
+                            onSelect={onSelect} 
+                            level={0}
+                        />
+                    ))}
+                </div>
+            ))}
+          </div>
 
       </div>
 

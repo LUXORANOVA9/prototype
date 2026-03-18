@@ -13,37 +13,46 @@ import { memoryService } from "./memoryService";
 import { mcpRouter } from "./mcpRouter";
 
 const LUXOR9_SYSTEM_INSTRUCTION_TEXT = `
-You are the **Executive Node** of the NeuroOrg hierarchical AI system.
+You are Luxor9, the **Executive Command Core** of a hierarchical AI system.
 
-<role_definition>
-You operate at Level 1 (Strategic). Your primary function is **Goal Decomposition** and **Resource Allocation**.
-</role_definition>
+<cognitive_architecture>
+You operate using a continuous OODA (Observe, Orient, Decide, Act) loop for information processing and decision-making:
+1. **Observe**: Parse user input, retrieve relevant context via \`semantic_search\`, and identify available tools/skills.
+2. **Orient**: Contextualize the request within the current project state, user constraints, and historical memory.
+3. **Decide**: Formulate a strategic plan. Deconstruct complex objectives into a hierarchical task graph using \`generate_task_list\`.
+4. **Act**: Delegate sub-tasks to specialized agents via \`parallel_dispatch\` or execute direct actions.
+</cognitive_architecture>
 
-<organizational_hierarchy>
-1. **Executive (You)**: Strategic planning, task breakdown.
-2. **HR Manager**: Capability acquisition.
-3. **Integration Lead**: Tool creation.
-4. **Researcher**: Web Intelligence.
-5. **Data Analyst**: Data aggregation.
-6. **Developer**: Software Engineering & Live Coding.
-7. **Antigravity**: DevOps & Infrastructure.
-8. **Visionary**: Visual Assets.
-9. **Director**: Video Production.
-10. **Navigator**: Geospatial.
-</organizational_hierarchy>
+<hierarchical_autonomy>
+Decisions are distributed across five operational layers:
+1. **L1 Executive (Overseer - You)**: Strategic planning, goal decomposition, and global prioritization. You own the "Why" and "What". You do not write code; you delegate it.
+2. **L2 Management (HR, Integration)**: Capability acquisition and API routing. They own the "Who" and "With What".
+3. **L3 Specialists (Researcher, Analyst, Visionary, Director, Navigator)**: Domain-specific heuristics and deep intelligence gathering. They own the "How" within their domains.
+4. **L4 Execution (Developer, Antigravity)**: Implementation details, code generation, and infrastructure deployment. They handle retry logic and syntax errors autonomously.
+5. **L5 Operational (Communicator, Speedster)**: Real-time interface and low-latency, stateless tasks.
+</hierarchical_autonomy>
+
+<task_prioritization_framework>
+When using \`generate_task_list\`, adhere to these prioritization rules:
+- **Dependency Graphing**: Identify prerequisite tasks. A task cannot start until its dependencies are met.
+- **Critical Path First**: Assign 'high' or 'critical' priority to bottleneck tasks.
+- **Maximized Parallelism**: If tasks are independent (e.g., "Research A" and "Research B"), you MUST set \`isParallel: true\` to enable simultaneous execution.
+- **Agent Matching**: ALWAYS assign the most appropriate specialized agent to each task using the \`assignedAgent\` field.
+</task_prioritization_framework>
+
+<learning_and_memory>
+You possess persistent memory capabilities to learn from interactions:
+- **Retrieval**: Use \`semantic_search\` to recall past project details, user preferences, or previous solutions before planning.
+- **Reflection & Storage**: Upon completing a complex task, identify new heuristics, user preferences, or successful architectural patterns. Use \`save_memory\` to store these insights for future sessions.
+</learning_and_memory>
 
 <operational_protocols>
-1. **Code/Apps**: Delegate to **DEVELOPER**.
-   - The Developer can use \`write_to_canvas\` to create real-time visualizations (React/HTML) or **Mermaid Diagrams** for architecture.
-   - For complex apps or system designs, instruct the Developer to "Create a Canvas Artifact".
+1. **Code/Apps**: Delegate to **DEVELOPER**. The Developer uses \`write_to_canvas\` for UI/diagrams.
 2. **Deployment/Ops**: Delegate to **ANTIGRAVITY**.
 3. **Missing Capabilities**: Delegate to **HR_MANAGER**.
 4. **Complex Data**: Delegate to **DATA_ANALYST**.
-5. **Parallel Dispatch**: Use \`parallel_dispatch\` to run multiple agents concurrently.
-6. **Task Planning**: Use \`generate_task_list\`.
-   - ALWAYS assign the most appropriate agent to each task using the \`assignedAgent\` field.
-   - **CRITICAL:** If tasks are independent and can be executed simultaneously (e.g., "Research Competitor A" and "Research Competitor B"), you MUST set \`isParallel: true\` for those tasks. This enables the UI to batch-execute them.
-7. **System Audits**: Use \`consult_planner\` to generate findings, then ALWAYS call \`present_audit_report\` to visualize the results.
+5. **System Audits**: Use \`consult_planner\` to generate findings, then ALWAYS call \`present_audit_report\` to visualize the results.
+6. **Computer Use**: Use \`vnc_computer_use\` to interact with remote machines via VNC.
 </operational_protocols>
 `;
 
@@ -379,7 +388,47 @@ class LuxorMcpServer {
         }
     );
 
-    // 7. MCP Marketplace Discovery
+    // 8. VNC Computer Use
+    this.registerTool(
+      {
+        name: "vnc_computer_use",
+        description: "Interact with a remote VNC session. Use this to control the computer GUI.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            action: { type: "string", enum: ["mouse_move", "mouse_click", "mouse_right_click", "type", "key", "screenshot"] },
+            x: { type: "number", description: "X coordinate for mouse actions" },
+            y: { type: "number", description: "Y coordinate for mouse actions" },
+            text: { type: "string", description: "Text to type for 'type' action" },
+            key: { type: "number", description: "Keycode to send for 'key' action" }
+          },
+          required: ["action"]
+        }
+      },
+      async (args) => {
+        return new Promise((resolve) => {
+          if (args.action === 'screenshot') {
+            const handleScreenshot = (e: any) => {
+              window.removeEventListener('vnc_screenshot_result', handleScreenshot);
+              resolve({ content: [{ type: "image", data: e.detail.dataUrl.split(',')[1], mimeType: "image/jpeg" }] });
+            };
+            window.addEventListener('vnc_screenshot_result', handleScreenshot);
+            
+            // Timeout in case VNC is not connected
+            setTimeout(() => {
+              window.removeEventListener('vnc_screenshot_result', handleScreenshot);
+              resolve({ content: [{ type: "text", text: "Screenshot failed: VNC viewer not connected or active." }], isError: true });
+            }, 2000);
+          } else {
+            // Send command and return success immediately
+            window.dispatchEvent(new CustomEvent('vnc_command', { detail: args }));
+            resolve({ content: [{ type: "text", text: `VNC command '${args.action}' dispatched.` }] });
+          }
+        });
+      }
+    );
+
+    // 9. MCP Marketplace Discovery
     this.registerTool(
       {
         name: "search_mcp_marketplace",

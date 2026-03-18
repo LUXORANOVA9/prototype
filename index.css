@@ -5,6 +5,48 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-brand: "Orbitron", sans-serif;
+
+  /* --- LUXOR9 MOTION SYSTEM --- */
+  
+  /* Duration Scale */
+  --duration-instant: 100ms;
+  --duration-fast: 250ms;
+  --duration-base: 400ms;
+  --duration-slow: 600ms;
+  --duration-deliberate: 900ms;
+  --duration-cinematic: 1400ms;
+
+  /* Easing Curves */
+  --ease-luxor-default: cubic-bezier(0.25, 0.1, 0.25, 1.0);
+  --ease-luxor-entrance: cubic-bezier(0.0, 0.0, 0.2, 1.0);
+  --ease-luxor-exit: cubic-bezier(0.4, 0.0, 1.0, 1.0);
+  --ease-luxor-depth: cubic-bezier(0.1, 0.9, 0.2, 1.0);
+
+  /* Animations */
+  --animate-luxor-fade-in: luxor-fade-in var(--duration-base) var(--ease-luxor-entrance) forwards;
+  --animate-luxor-slide-up: luxor-slide-up var(--duration-base) var(--ease-luxor-entrance) forwards;
+  --animate-luxor-scale-in: luxor-scale-in var(--duration-base) var(--ease-luxor-depth) forwards;
+  --animate-luxor-pulse: luxor-pulse 3s ease-in-out infinite;
+
+  @keyframes luxor-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes luxor-slide-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes luxor-scale-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes luxor-pulse {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.02); }
+  }
 }
 
 :root {
@@ -24,3 +66,14 @@ body {
 html:not(.dark) body {
   --bg-primary: #fafafa;
 }
+
+/* Utility Classes for Motion */
+.motion-luxor-default { transition: all var(--duration-base) var(--ease-luxor-default); }
+.motion-luxor-fast { transition: all var(--duration-fast) var(--ease-luxor-default); }
+.motion-luxor-slow { transition: all var(--duration-slow) var(--ease-luxor-default); }
+
+/* Stagger Delays */
+.delay-0 { transition-delay: 0ms; }
+.delay-1 { transition-delay: 50ms; }
+.delay-2 { transition-delay: 100ms; }
+.delay-3 { transition-delay: 150ms; }

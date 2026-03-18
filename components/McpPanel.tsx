@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { mcpRouter } from '../services/mcpRouter';
 import { mcpClient } from '../services/mcpClient';
 import { McpProfile, McpPlatform } from '../types';
-import { Network, Plus, Trash2, Check, X, Key, Cloud, Sparkles, Box, Terminal, Cpu, Zap, Ghost, Layers, Server, Globe, ExternalLink, Activity, Sun, Moon, Laptop, Shield, Lock, AlertTriangle, RefreshCw, CheckCircle2, XCircle, CreditCard, ChevronLeft, Search, Eye, EyeOff, Info, Mic, Database, ArrowRight, LayoutGrid, List } from 'lucide-react';
+import { Network, Plus, Trash2, Check, X, Key, Cloud, Sparkles, Box, Terminal, Cpu, Zap, Ghost, Layers, Server, Globe, ExternalLink, Activity, Sun, Moon, Laptop, Shield, Lock, AlertTriangle, RefreshCw, CircleCheck, CircleX, CreditCard, ChevronLeft, Search, Eye, EyeOff, Info, Mic, Database, ArrowRight, LayoutGrid, List } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -73,7 +73,8 @@ export const McpPanel: React.FC<Props> = ({ isOpen, onClose, isDarkMode, onToggl
 
   useEffect(() => {
       if (activeTab === 'system') {
-          fetch('http://localhost:8080/health')
+          const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+          fetch(`http://${host}:8080/health`)
             .then(res => res.json())
             .then(data => setBackendHealth(data))
             .catch(() => setBackendHealth(null));
@@ -164,11 +165,15 @@ export const McpPanel: React.FC<Props> = ({ isOpen, onClose, isDarkMode, onToggl
 
   const handleAddServer = async () => {
       if (newServerUrl) {
-          localStorage.setItem('luxor9_mcp_sse_url', newServerUrl);
-          await mcpClient.connectSse(newServerUrl);
-          setNewServerUrl('');
-          setIsAddingServer(false);
-          refreshConnections();
+          try {
+              await mcpClient.connectSse(newServerUrl);
+              localStorage.setItem('luxor9_mcp_sse_url', newServerUrl);
+              setNewServerUrl('');
+              setIsAddingServer(false);
+              refreshConnections();
+          } catch (e: any) {
+              alert(`Failed to connect to MCP server: ${e.message}`);
+          }
       }
   };
 
@@ -407,7 +412,7 @@ export const McpPanel: React.FC<Props> = ({ isOpen, onClose, isDarkMode, onToggl
                                                                             <div className="flex gap-1">
                                                                                 {!isActive && (
                                                                                     <button onClick={() => handleActivate(profile)} className="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors" title="Activate">
-                                                                                        <CheckCircle2 size={16} />
+                                                                                        <CircleCheck size={16} />
                                                                                     </button>
                                                                                 )}
                                                                                 <button onClick={() => handleDelete(profile.id)} className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete">
@@ -567,8 +572,8 @@ export const McpPanel: React.FC<Props> = ({ isOpen, onClose, isDarkMode, onToggl
                                                                 className={`px-6 py-3 rounded-xl font-bold text-xs transition-all flex items-center gap-2 border ${testStatus === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-500/30' : testStatus === 'error' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:border-red-500/30' : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700'}`}
                                                             >
                                                                 {testStatus === 'testing' && <RefreshCw size={14} className="animate-spin" />}
-                                                                {testStatus === 'success' && <CheckCircle2 size={14} />}
-                                                                {testStatus === 'error' && <XCircle size={14} />}
+                                                                {testStatus === 'success' && <CircleCheck size={14} />}
+                                                                {testStatus === 'error' && <CircleX size={14} />}
                                                                 {testStatus === 'idle' && 'Test Key'}
                                                                 {testStatus === 'testing' && 'Verifying'}
                                                                 {testStatus === 'success' && 'Verified'}

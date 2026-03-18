@@ -188,6 +188,12 @@ export interface MemoryNode {
   isPinned?: boolean; // Level 7: Persistent context
 }
 
+export interface SecurityRequest {
+  source: string;
+  instructions: string;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'model';
@@ -213,6 +219,7 @@ export interface Message {
     modelUsed?: string;
     provider?: string;
   };
+  securityRequest?: SecurityRequest;
 }
 
 export type ImageAspectRatio = '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '9:16' | '16:9' | '21:9';

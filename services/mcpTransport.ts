@@ -57,21 +57,27 @@ export class SseTransport implements IMcpTransport {
         };
 
         es.onerror = (e) => {
-           console.error(`[MCP SSE] Error on ${this.endpoint}`, e);
-           if (!this.connected) reject(new Error("Failed to connect to SSE endpoint"));
-           // If already connected, we might want to handle reconnection logic or close
-           this.close(); 
+           console.warn(`[MCP SSE] Error on ${this.endpoint}`);
+           if (!this.connected) {
+               es.close();
+               reject(new Error(`Failed to establish SSE connection to ${this.endpoint}. Ensure the server is running and allows CORS.`));
+           } else {
+               // If already connected, we might want to handle reconnection logic or close
+               this.close(); 
+           }
         };
 
         es.addEventListener("endpoint", (e: MessageEvent) => {
            // The server sends the POST endpoint via an 'endpoint' event
-           this.postEndpoint = new URL(e.data, this.endpoint).toString();
-           console.log(`[MCP SSE] Received write endpoint: ${this.postEndpoint}`);
+           try {
+               this.postEndpoint = new URL(e.data, this.endpoint).toString();
+               console.log(`[MCP SSE] Received write endpoint: ${this.postEndpoint}`);
+           } catch (err) {
+               console.error(`[MCP SSE] Invalid endpoint URL received: ${e.data}`, err);
+           }
         });
 
         // We also need to handle JSON-RPC messages coming down the wire if the server pushes them
-        // Note: For 'callTool', usually we send a POST and get a response. 
-        // Notifications might come here.
         es.onmessage = (e) => {
             // Handle incoming notifications if necessary
         };

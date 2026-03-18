@@ -1,0 +1,52 @@
+[
+    {
+        "label": "EXECUTIVE COMMAND",
+        "color": "text-amber-500",
+        "agents": [
+            { 
+                "id": "OVERSEER", 
+                "name": "Overseer", 
+                "description": "System Orchestrator", 
+                "icon": "Brain",
+                "subGroups": [
+                    {
+                        "label": "MANAGEMENT LAYER",
+                        "agents": [
+                            { "id": "HR_MANAGER", "name": "HR Manager", "description": "Capability Scaling", "icon": "Users" },
+                            { "id": "INTEGRATION_LEAD", "name": "Integration", "description": "System Connectivity", "icon": "Wrench" }
+                        ]
+                    },
+                    {
+                        "label": "INTELLIGENCE & ANALYSIS",
+                        "agents": [
+                            { "id": "RESEARCHER", "name": "Researcher", "description": "Web Intelligence", "icon": "Globe" },
+                            { "id": "DATA_ANALYST", "name": "Data Analyst", "description": "Pattern Recognition", "icon": "BarChart3" }
+                        ]
+                    },
+                    {
+                        "label": "ENGINEERING & INFRA",
+                        "agents": [
+                            { "id": "DEVELOPER", "name": "Developer", "description": "Code Execution", "icon": "Terminal" },
+                            { "id": "ANTIGRAVITY", "name": "Antigravity", "description": "Infrastructure", "icon": "Server" }
+                        ]
+                    },
+                    {
+                        "label": "CREATIVE STUDIO",
+                        "agents": [
+                            { "id": "VISIONARY", "name": "Visionary", "description": "Visual Synthesis", "icon": "Eye" },
+                            { "id": "DIRECTOR", "name": "Director", "description": "Motion Synthesis", "icon": "Video" }
+                        ]
+                    },
+                    {
+                        "label": "OPERATIONAL UTILITY",
+                        "agents": [
+                            { "id": "NAVIGATOR", "name": "Navigator", "description": "Geospatial Data", "icon": "MapPin" },
+                            { "id": "SPEEDSTER", "name": "Speedster", "description": "Low Latency Ops", "icon": "Zap" },
+                            { "id": "COMMUNICATOR", "name": "Communicator", "description": "Voice/Live Interface", "icon": "Mic" }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]
