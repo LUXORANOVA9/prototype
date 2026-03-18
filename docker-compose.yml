@@ -1,22 +1,37 @@
 version: '3.8'
 
 services:
-  mcp-server:
+  # --- Backend API Server ---
+  api:
     build:
-      context: .
+      context: ./service
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
     environment:
-      - API_KEY=${API_KEY} # Inject from local shell
-      - PROJECT_ID=local-lab
-      - REGION=us-central1
+      - PORT=8080
+      - API_KEY=${API_KEY:-}
+      - JWT_SECRET=${JWT_SECRET:-luxor9-factory-secret}
+      - NODE_ENV=production
     volumes:
-      - ./service:/app
+      - api-data:/app/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # --- Frontend (Static served by nginx) ---
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
     restart: always
 
-  # Optional: Redis for rate limiting (future)
-  # redis:
-  #   image: redis:alpine
-  #   ports:
-  #     - "6379:6379"
+volumes:
+  api-data:
