@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 2,
+  "dockerfileLines": [
+    "FROM node:20-alpine",
+    "WORKDIR /app",
+    "COPY service/package.json ./service/",
+    "COPY service/server.js ./service/",
+    "COPY service/seed.js ./service/",
+    "RUN cd service && npm install --production",
+    "RUN mkdir -p service/data",
+    "COPY dist/ ./dist/",
+    "RUN npm install -g serve",
+    "EXPOSE 8080",
+    "EXPOSE 3000",
+    "# Start both backend and frontend",
+    "CMD sh -c 'cd service && node server.js & serve -s dist -l 3000 & wait'"
+  ],
+  "envVars": [
+    {
+      "id": "PORT",
+      "value": "8080"
+    },
+    {
+      "id": "NODE_ENV",
+      "value": "production"
+    },
+    {
+      "id": "API_KEY",
+      "value": ""
+    },
+    {
+      "id": "JWT_SECRET",
+      "value": "change-this-to-a-secure-secret"
+    }
+  ],
+  "notExposeAsWebApp": "false",
+  "containerHttpPort": "3000"
+}
