@@ -3,11 +3,12 @@ import { AgentType } from './types';
 import { AgentSelector } from './components/AgentSelector';
 import { AgentWorkstation } from './components/AgentWorkstation';
 import { McpPanel } from './components/McpPanel';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2, MessageSquare, Layers } from 'lucide-react';
 import { mcpClient } from './services/mcpClient';
 
-// Lazy load LandingPage to isolate heavy 3D dependencies
+// Lazy load heavy components
 const LandingPage = React.lazy(() => import('./components/LandingPage'));
+const ChatBoard = React.lazy(() => import('./components/ChatBoard'));
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -148,10 +149,13 @@ const GlobalStyles = () => (
   `}} />
 );
 
+type ViewMode = 'agents' | 'chatboard';
+
 const AppContent: React.FC = () => {
   const [activeAgent, setActiveAgent] = useState<AgentType>(AgentType.OVERSEER);
   const [isMcpOpen, setIsMcpOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>('chatboard');
   
   // Launch State
   const [hasLaunched, setHasLaunched] = useState(false);
@@ -238,7 +242,7 @@ const AppContent: React.FC = () => {
 
       {/* Main App Layer */}
       {hasLaunched && !isLaunching && (
-        <div className="flex flex-col md:flex-row h-[100dvh] w-full bg-[#02050A] dark:bg-[#02050A] text-zinc-200 overflow-hidden relative selection:bg-amber-500/30 transition-colors duration-300 animate-in fade-in duration-1000">
+        <div className="flex flex-col h-[100dvh] w-full bg-[#02050A] text-zinc-200 overflow-hidden relative selection:bg-amber-500/30 transition-colors duration-300 animate-in fade-in duration-1000">
           <McpPanel 
             isOpen={isMcpOpen} 
             onClose={() => setIsMcpOpen(false)} 
@@ -246,23 +250,76 @@ const AppContent: React.FC = () => {
             onToggleTheme={toggleTheme}
           />
 
-          {/* Mobile: Bottom Order. Desktop: Left/First Order */}
-          <div className="order-2 md:order-1 flex-none z-30">
-            <AgentSelector 
-              activeAgent={activeAgent} 
-              onSelect={setActiveAgent} 
-              onOpenMcp={() => setIsMcpOpen(true)}
-              isDarkMode={isDarkMode}
-              onToggleTheme={toggleTheme}
-            />
+          {/* View Mode Toggle Bar */}
+          <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-white/5 z-40 shrink-0">
+            <div className="flex items-center gap-1">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center mr-3">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#02050A" strokeWidth="2.5">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                  <path d="M2 17l10 5 10-5"/>
+                  <path d="M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <button
+                onClick={() => setViewMode('chatboard')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  viewMode === 'chatboard'
+                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                    : 'text-white/40 hover:text-white/60 border border-transparent'
+                }`}
+              >
+                <MessageSquare size={14} />
+                ChatBoard
+              </button>
+              <button
+                onClick={() => setViewMode('agents')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  viewMode === 'agents'
+                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                    : 'text-white/40 hover:text-white/60 border border-transparent'
+                }`}
+              >
+                <Layers size={14} />
+                Agent Factory
+              </button>
+            </div>
+            <button
+              onClick={() => setIsMcpOpen(true)}
+              className="text-[10px] text-white/30 hover:text-white/60 font-mono uppercase tracking-wider cursor-pointer transition-colors"
+            >
+              System
+            </button>
           </div>
-          
-          {/* Main Content */}
-          <div className="order-1 md:order-2 flex-1 h-full relative min-h-0 z-0">
-            <AgentWorkstation 
-              agent={activeAgent} 
-              onOpenMcp={() => setIsMcpOpen(true)}
-            />
+
+          {/* Content Area */}
+          <div className="flex-1 min-h-0 relative z-0">
+            <Suspense fallback={
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="animate-spin text-amber-500" size={24} />
+              </div>
+            }>
+              {viewMode === 'chatboard' ? (
+                <ChatBoard />
+              ) : (
+                <div className="flex flex-col md:flex-row h-full">
+                  <div className="order-2 md:order-1 flex-none z-30">
+                    <AgentSelector 
+                      activeAgent={activeAgent} 
+                      onSelect={setActiveAgent} 
+                      onOpenMcp={() => setIsMcpOpen(true)}
+                      isDarkMode={isDarkMode}
+                      onToggleTheme={toggleTheme}
+                    />
+                  </div>
+                  <div className="order-1 md:order-2 flex-1 h-full relative min-h-0 z-0">
+                    <AgentWorkstation 
+                      agent={activeAgent} 
+                      onOpenMcp={() => setIsMcpOpen(true)}
+                    />
+                  </div>
+                </div>
+              )}
+            </Suspense>
           </div>
         </div>
       )}

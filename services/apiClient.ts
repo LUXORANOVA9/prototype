@@ -3,13 +3,37 @@
  * Connects frontend to the full-stack backend
  */
 
-const API_BASE = typeof window !== 'undefined'
-  ? `${window.location.protocol}//${window.location.hostname}:8080`
-  : 'http://localhost:8080';
+// Detect backend URL:
+// 1. Window global override (for runtime config)
+// 2. Same-origin /api path (when behind reverse proxy)
+// 3. Localhost:8080 (development)
+function getApiBase(): string {
+  if (typeof window !== 'undefined') {
+    // Runtime override
+    if ((window as any).__LUXOR9_API_URL) return (window as any).__LUXOR9_API_URL;
+    // Check if we're on a deployed domain (not localhost)
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      // Try same-origin first (works with reverse proxy like nginx)
+      return `${window.location.protocol}//${window.location.host}`;
+    }
+    // Local development
+    return `${window.location.protocol}//${window.location.hostname}:8080`;
+  }
+  return 'http://localhost:8080';
+}
+
+const API_BASE = getApiBase();
 
 const WS_BASE = typeof window !== 'undefined'
-  ? `ws://${window.location.hostname}:8080`
-  : 'ws://localhost:8080';
+  ? (() => {
+      if ((window as any).__LUXOR9_WS_URL) return (window as any).__LUXOR9_WS_URL;
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        return `${proto}//${window.location.host}/ws`;
+      }
+      return `${proto}//${window.location.hostname}:8080/ws`;
+    })()
+  : 'ws://localhost:8080/ws';
 
 let authToken: string | null = null;
 let wsConnection: WebSocket | null = null;
