@@ -3,7 +3,7 @@ import { AgentType } from './types';
 import { AgentSelector } from './components/AgentSelector';
 import { AgentWorkstation } from './components/AgentWorkstation';
 import { McpPanel } from './components/McpPanel';
-import { AlertTriangle, Loader2, MessageSquare, Layers, Activity, Workflow, Feather, BookOpen, Network, Store, Users, Headphones, Wallet } from 'lucide-react';
+import { AlertTriangle, Loader2, MessageSquare, Layers, Activity, Workflow, Feather, BookOpen, Network, Store, Users, Headphones, Wallet, GitBranch } from 'lucide-react';
 import { mcpClient } from './services/mcpClient';
 
 // Lazy load heavy components
@@ -18,6 +18,7 @@ const AgentMarketplace = React.lazy(() => import('./components/AgentMarketplace'
 const WarRooms = React.lazy(() => import('./components/WarRooms'));
 const VoiceFactory = React.lazy(() => import('./components/VoiceFactory'));
 const MonetizationDashboard = React.lazy(() => import('./components/MonetizationDashboard'));
+const AgentFabricDashboard = React.lazy(() => import('./components/AgentFabric'));
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -158,7 +159,7 @@ const GlobalStyles = () => (
   `}} />
 );
 
-type ViewMode = 'agents' | 'chatboard' | 'factory' | 'playground' | 'journal' | 'narrative' | 'palace' | 'marketplace' | 'warrooms' | 'voice' | 'credits';
+type ViewMode = 'agents' | 'chatboard' | 'factory' | 'playground' | 'journal' | 'narrative' | 'palace' | 'marketplace' | 'warrooms' | 'voice' | 'credits' | 'fabric';
 
 const AppContent: React.FC = () => {
   const [activeAgent, setActiveAgent] = useState<AgentType>(AgentType.OVERSEER);
@@ -390,6 +391,17 @@ const AppContent: React.FC = () => {
                 <Wallet size={14} />
                 Credits
               </button>
+              <button
+                onClick={() => setViewMode('fabric')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  viewMode === 'fabric'
+                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                    : 'text-white/40 hover:text-white/60 border border-transparent'
+                }`}
+              >
+                <GitBranch size={14} />
+                Fabric
+              </button>
             </div>
             <button
               onClick={() => setIsMcpOpen(true)}
@@ -426,6 +438,8 @@ const AppContent: React.FC = () => {
                 <VoiceFactory />
               ) : viewMode === 'credits' ? (
                 <MonetizationDashboard />
+              ) : viewMode === 'fabric' ? (
+                <AgentFabricDashboard />
               ) : (
                 <div className="flex flex-col md:flex-row h-full">
                   <div className="order-2 md:order-1 flex-none z-30">

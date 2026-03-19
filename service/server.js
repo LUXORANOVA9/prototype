@@ -704,6 +704,226 @@ app.get('/api/analytics/events', authenticate, (req, res) => {
 });
 
 // ========================
+// === AGENT FABRIC ======
+// ========================
+
+// In-memory fabric state (persisted to SQLite in production)
+const fabricState = {
+  tasks: new Map(),
+  messages: [],
+  events: [],
+  agentInstances: new Map(),
+};
+
+// Initialize agent instances
+const AGENT_DEFS = [
+  { id: 'OVERSEER', name: 'Overseer', category: 'executive', capabilities: ['coordination', 'planning', 'delegation'] },
+  { id: 'DEVELOPER', name: 'Developer', category: 'executor', capabilities: ['coding', 'debugging', 'testing'] },
+  { id: 'VISIONARY', name: 'Visionary', category: 'specialist', capabilities: ['image_generation', 'design'] },
+  { id: 'DIRECTOR', name: 'Director', category: 'specialist', capabilities: ['video_generation', 'storyboarding'] },
+  { id: 'RESEARCHER', name: 'Researcher', category: 'specialist', capabilities: ['web_search', 'fact_checking'] },
+  { id: 'DATA_ANALYST', name: 'Data Analyst', category: 'specialist', capabilities: ['data_analysis', 'visualization'] },
+  { id: 'COMMUNICATOR', name: 'Communicator', category: 'operational', capabilities: ['speech_synthesis', 'transcription'] },
+  { id: 'NAVIGATOR', name: 'Navigator', category: 'specialist', capabilities: ['geolocation', 'mapping'] },
+  { id: 'HR_MANAGER', name: 'HR Manager', category: 'manager', capabilities: ['tool_discovery', 'talent_acquisition'] },
+  { id: 'INTEGRATION_LEAD', name: 'Integration Lead', category: 'manager', capabilities: ['api_integration', 'mcp_management'] },
+  { id: 'SPEEDSTER', name: 'Speedster', category: 'operational', capabilities: ['fast_inference', 'classification'] },
+  { id: 'ANTIGRAVITY', name: 'Antigravity', category: 'executor', capabilities: ['infrastructure', 'deployment'] },
+];
+
+AGENT_DEFS.forEach(def => {
+  fabricState.agentInstances.set(def.id, {
+    definitionId: def.id,
+    instanceId: `${def.id}-${Date.now()}`,
+    status: 'idle',
+    tasksCompleted: 0,
+    tasksFailed: 0,
+    averageLatency: 0,
+    lastHeartbeat: Date.now(),
+    startedAt: Date.now(),
+  });
+});
+
+// Get all agent definitions
+app.get('/api/fabric/agents', authenticate, (req, res) => {
+  const instances = Array.from(fabricState.agentInstances.values());
+  res.json({ agents: AGENT_DEFS, instances });
+});
+
+// Get agent instance by ID
+app.get('/api/fabric/agents/:id', authenticate, (req, res) => {
+  const instance = fabricState.agentInstances.get(req.params.id);
+  const def = AGENT_DEFS.find(d => d.id === req.params.id);
+  if (!instance || !def) return res.status(404).json({ error: 'Agent not found' });
+  res.json({ agent: def, instance });
+});
+
+// Create fabric task
+app.post('/api/fabric/tasks', authenticate, (req, res) => {
+  const { title, description, priority, requiredCapabilities, input, assignedTo } = req.body;
+  if (!title) return res.status(400).json({ error: 'title is required' });
+
+  const task = {
+    id: `task-${uuidv4()}`,
+    title,
+    description: description || '',
+    status: assignedTo ? 'assigned' : 'queued',
+    priority: priority || 'normal',
+    requiredCapabilities: requiredCapabilities || [],
+    input: input || {},
+    assignedTo: assignedTo || null,
+    createdAt: Date.now(),
+    startedAt: assignedTo ? Date.now() : null,
+    completedAt: null,
+    delegationChain: assignedTo ? [assignedTo] : [],
+    parentTaskId: null,
+    subtasks: [],
+    userId: req.userId,
+  };
+
+  fabricState.tasks.set(task.id, task);
+
+  // Auto-route if no specific agent
+  if (!assignedTo && requiredCapabilities?.length > 0) {
+    let bestAgent = null;
+    let bestScore = 0;
+    for (const def of AGENT_DEFS) {
+      const matchCount = requiredCapabilities.filter(cap => def.capabilities.includes(cap)).length;
+      if (matchCount > bestScore) {
+        bestScore = matchCount;
+        bestAgent = def.id;
+      }
+    }
+    if (bestAgent) {
+      task.assignedTo = bestAgent;
+      task.status = 'assigned';
+      task.startedAt = Date.now();
+      task.delegationChain.push(bestAgent);
+      const inst = fabricState.agentInstances.get(bestAgent);
+      if (inst) inst.status = 'busy';
+    }
+  }
+
+  // Emit event
+  fabricState.events.push({
+    id: `evt-${uuidv4()}`,
+    type: 'task_created',
+    source: task.assignedTo || 'user',
+    data: { taskId: task.id, title: task.title },
+    timestamp: Date.now(),
+  });
+
+  broadcastToUser(req.userId, { type: 'fabric_task_created', task });
+  res.status(201).json({ task });
+});
+
+// Get fabric tasks
+app.get('/api/fabric/tasks', authenticate, (req, res) => {
+  const { status, assignedTo, limit } = req.query;
+  let tasks = Array.from(fabricState.tasks.values());
+  if (status) tasks = tasks.filter(t => t.status === status);
+  if (assignedTo) tasks = tasks.filter(t => t.assignedTo === assignedTo);
+  tasks = tasks.slice(-(parseInt(limit) || 50));
+  res.json({ tasks });
+});
+
+// Complete fabric task
+app.post('/api/fabric/tasks/:id/complete', authenticate, (req, res) => {
+  const task = fabricState.tasks.get(req.params.id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  task.status = 'completed';
+  task.completedAt = Date.now();
+  task.output = req.body.output;
+
+  if (task.assignedTo) {
+    const inst = fabricState.agentInstances.get(task.assignedTo);
+    if (inst) {
+      inst.status = 'idle';
+      inst.tasksCompleted++;
+      const latency = task.completedAt - (task.startedAt || task.createdAt);
+      inst.averageLatency = (inst.averageLatency * (inst.tasksCompleted - 1) + latency) / inst.tasksCompleted;
+    }
+  }
+
+  fabricState.events.push({
+    id: `evt-${uuidv4()}`,
+    type: 'task_completed',
+    source: task.assignedTo,
+    data: { taskId: task.id },
+    timestamp: Date.now(),
+  });
+
+  broadcastToUser(req.userId, { type: 'fabric_task_completed', taskId: task.id });
+  res.json({ task });
+});
+
+// Send fabric message
+app.post('/api/fabric/messages', authenticate, (req, res) => {
+  const { from, to, type, payload, priority } = req.body;
+  const message = {
+    id: `msg-${uuidv4()}`,
+    from: from || 'user',
+    to: to || 'OVERSEER',
+    type: type || 'task',
+    payload: payload || {},
+    priority: priority || 'normal',
+    timestamp: Date.now(),
+  };
+  fabricState.messages.push(message);
+  if (fabricState.messages.length > 500) fabricState.messages = fabricState.messages.slice(-250);
+
+  broadcastToUser(req.userId, { type: 'fabric_message', message });
+  res.status(201).json({ message });
+});
+
+// Get fabric messages
+app.get('/api/fabric/messages', authenticate, (req, res) => {
+  const { from, to, type, limit } = req.query;
+  let messages = fabricState.messages;
+  if (from) messages = messages.filter(m => m.from === from);
+  if (to) messages = messages.filter(m => m.to === to || (Array.isArray(m.to) && m.to.includes(to)));
+  if (type) messages = messages.filter(m => m.type === type);
+  res.json({ messages: messages.slice(-(parseInt(limit) || 50)) });
+});
+
+// Get fabric events
+app.get('/api/fabric/events', authenticate, (req, res) => {
+  const { type, source, limit } = req.query;
+  let events = fabricState.events;
+  if (type) events = events.filter(e => e.type === type);
+  if (source) events = events.filter(e => e.source === source);
+  res.json({ events: events.slice(-(parseInt(limit) || 50)) });
+});
+
+// Get fabric stats
+app.get('/api/fabric/stats', authenticate, (req, res) => {
+  const instances = Array.from(fabricState.agentInstances.values());
+  const tasks = Array.from(fabricState.tasks.values());
+  res.json({
+    totalAgents: instances.length,
+    activeAgents: instances.filter(i => i.status !== 'offline' && i.status !== 'error').length,
+    idleAgents: instances.filter(i => i.status === 'idle').length,
+    busyAgents: instances.filter(i => i.status === 'busy').length,
+    totalTasks: tasks.length,
+    completedTasks: tasks.filter(t => t.status === 'completed').length,
+    failedTasks: tasks.filter(t => t.status === 'failed').length,
+    queuedTasks: tasks.filter(t => t.status === 'queued').length,
+    totalMessages: fabricState.messages.length,
+    totalEvents: fabricState.events.length,
+  });
+});
+
+// Heartbeat
+app.post('/api/fabric/heartbeat/:agentId', authenticate, (req, res) => {
+  const inst = fabricState.agentInstances.get(req.params.agentId);
+  if (!inst) return res.status(404).json({ error: 'Agent not found' });
+  inst.lastHeartbeat = Date.now();
+  if (inst.status === 'error') inst.status = 'idle';
+  res.json({ ok: true });
+});
+
+// ========================
 // === MCP ORCHESTRATOR ===
 // ========================
 
