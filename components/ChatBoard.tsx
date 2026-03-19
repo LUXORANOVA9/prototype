@@ -11,7 +11,9 @@ const API_BASE = typeof window !== 'undefined'
   ? (window as any).__LUXOR9_API_URL || `${window.location.protocol}//${window.location.hostname}:8080`
   : 'http://localhost:8080';
 
-const WS_BASE = API_BASE.replace(/^http/, 'ws') + '/ws';
+const WS_BASE = typeof window !== 'undefined'
+  ? (window as any).__LUXOR9_WS_URL || `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:8080/ws`
+  : 'ws://localhost:8080/ws';
 
 interface ApiOptions {
   method?: string;

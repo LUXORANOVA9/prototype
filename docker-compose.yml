@@ -1,37 +1,54 @@
+# =============================================
+# Luxor9 Ai Factory — Full Stack Deployment
+# Autonomous setup: docker-compose up -d
+# =============================================
 version: '3.8'
 
 services:
-  # --- Backend API Server ---
+  # === BACKEND API SERVER ===
   api:
     build:
       context: ./service
       dockerfile: Dockerfile
+    container_name: luxor9-api
     ports:
       - "8080:8080"
     environment:
       - PORT=8080
       - API_KEY=${API_KEY:-}
-      - JWT_SECRET=${JWT_SECRET:-luxor9-factory-secret}
+      - JWT_SECRET=${JWT_SECRET:-luxor9-factory-secret-change-me}
       - NODE_ENV=production
     volumes:
       - api-data:/app/data
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
+    networks:
+      - luxor9
 
-  # --- Frontend (Static served by nginx) ---
+  # === FRONTEND (Nginx Reverse Proxy) ===
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
+    image: nginx:alpine
+    container_name: luxor9-web
     ports:
       - "3000:80"
+    volumes:
+      - ./dist:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     restart: always
+    networks:
+      - luxor9
 
 volumes:
   api-data:
+
+networks:
+  luxor9:
+    driver: bridge

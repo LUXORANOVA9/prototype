@@ -1008,6 +1008,27 @@
             window.dispatchEvent(event);
         });
 
+        // ---- AUTO-DETECT API URL (for deployed environments) ----
+        (function() {
+            var host = window.location.hostname;
+            var proto = window.location.protocol;
+            var wsProto = proto === 'https:' ? 'wss:' : 'ws:';
+            
+            if (host !== 'localhost' && host !== '127.0.0.1') {
+                // Deployed: use same origin (nginx reverse proxy)
+                window.__LUXOR9_API_URL = proto + '//' + window.location.host;
+                window.__LUXOR9_WS_URL = wsProto + '//' + window.location.host + '/ws';
+            } else {
+                // Local development: backend on :8080
+                window.__LUXOR9_API_URL = proto + '//' + host + ':8080';
+                window.__LUXOR9_WS_URL = wsProto + '//' + host + ':8080/ws';
+            }
+            
+            // Log connection info
+            console.log('[Luxor9] API:', window.__LUXOR9_API_URL);
+            console.log('[Luxor9] WS:', window.__LUXOR9_WS_URL);
+        })();
+
         // ---- PARALLAX (subtle) ----
         let parallaxTarget = { x: 0, y: 0 };
         let parallaxCurrent = { x: 0, y: 0 };
