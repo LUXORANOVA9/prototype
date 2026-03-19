@@ -3,12 +3,13 @@ import { AgentType } from './types';
 import { AgentSelector } from './components/AgentSelector';
 import { AgentWorkstation } from './components/AgentWorkstation';
 import { McpPanel } from './components/McpPanel';
-import { AlertTriangle, Loader2, MessageSquare, Layers } from 'lucide-react';
+import { AlertTriangle, Loader2, MessageSquare, Layers, Activity } from 'lucide-react';
 import { mcpClient } from './services/mcpClient';
 
 // Lazy load heavy components
 const LandingPage = React.lazy(() => import('./components/LandingPage'));
 const ChatBoard = React.lazy(() => import('./components/ChatBoard'));
+const FactoryFloor = React.lazy(() => import('./components/FactoryFloor'));
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -149,7 +150,7 @@ const GlobalStyles = () => (
   `}} />
 );
 
-type ViewMode = 'agents' | 'chatboard';
+type ViewMode = 'agents' | 'chatboard' | 'factory';
 
 const AppContent: React.FC = () => {
   const [activeAgent, setActiveAgent] = useState<AgentType>(AgentType.OVERSEER);
@@ -282,6 +283,17 @@ const AppContent: React.FC = () => {
                 <Layers size={14} />
                 Agent Factory
               </button>
+              <button
+                onClick={() => setViewMode('factory')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  viewMode === 'factory'
+                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                    : 'text-white/40 hover:text-white/60 border border-transparent'
+                }`}
+              >
+                <Activity size={14} />
+                Factory Floor
+              </button>
             </div>
             <button
               onClick={() => setIsMcpOpen(true)}
@@ -300,6 +312,8 @@ const AppContent: React.FC = () => {
             }>
               {viewMode === 'chatboard' ? (
                 <ChatBoard />
+              ) : viewMode === 'factory' ? (
+                <FactoryFloor />
               ) : (
                 <div className="flex flex-col md:flex-row h-full">
                   <div className="order-2 md:order-1 flex-none z-30">
