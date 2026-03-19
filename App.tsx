@@ -3,7 +3,7 @@ import { AgentType } from './types';
 import { AgentSelector } from './components/AgentSelector';
 import { AgentWorkstation } from './components/AgentWorkstation';
 import { McpPanel } from './components/McpPanel';
-import { AlertTriangle, Loader2, MessageSquare, Layers, Activity, Workflow, Feather, BookOpen, Network, Store, Users, Headphones, Wallet, GitBranch } from 'lucide-react';
+import { AlertTriangle, Loader2, MessageSquare, Layers, Activity, Workflow, Feather, BookOpen, Network, Store, Users, Headphones, Wallet, GitBranch, GitMerge } from 'lucide-react';
 import { mcpClient } from './services/mcpClient';
 
 // Lazy load heavy components
@@ -19,6 +19,7 @@ const WarRooms = React.lazy(() => import('./components/WarRooms'));
 const VoiceFactory = React.lazy(() => import('./components/VoiceFactory'));
 const MonetizationDashboard = React.lazy(() => import('./components/MonetizationDashboard'));
 const AgentFabricDashboard = React.lazy(() => import('./components/AgentFabric'));
+const AdvancedDashboard = React.lazy(() => import('./components/AdvancedDashboard'));
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -159,7 +160,7 @@ const GlobalStyles = () => (
   `}} />
 );
 
-type ViewMode = 'agents' | 'chatboard' | 'factory' | 'playground' | 'journal' | 'narrative' | 'palace' | 'marketplace' | 'warrooms' | 'voice' | 'credits' | 'fabric';
+type ViewMode = 'agents' | 'chatboard' | 'factory' | 'playground' | 'journal' | 'narrative' | 'palace' | 'marketplace' | 'warrooms' | 'voice' | 'credits' | 'fabric' | 'advanced';
 
 const AppContent: React.FC = () => {
   const [activeAgent, setActiveAgent] = useState<AgentType>(AgentType.OVERSEER);
@@ -402,6 +403,17 @@ const AppContent: React.FC = () => {
                 <GitBranch size={14} />
                 Fabric
               </button>
+              <button
+                onClick={() => setViewMode('advanced')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  viewMode === 'advanced'
+                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                    : 'text-white/40 hover:text-white/60 border border-transparent'
+                }`}
+              >
+                <GitMerge size={14} />
+                Advanced
+              </button>
             </div>
             <button
               onClick={() => setIsMcpOpen(true)}
@@ -440,6 +452,8 @@ const AppContent: React.FC = () => {
                 <MonetizationDashboard />
               ) : viewMode === 'fabric' ? (
                 <AgentFabricDashboard />
+              ) : viewMode === 'advanced' ? (
+                <AdvancedDashboard />
               ) : (
                 <div className="flex flex-col md:flex-row h-full">
                   <div className="order-2 md:order-1 flex-none z-30">
