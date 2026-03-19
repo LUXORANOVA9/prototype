@@ -3,7 +3,7 @@ import { AgentType } from './types';
 import { AgentSelector } from './components/AgentSelector';
 import { AgentWorkstation } from './components/AgentWorkstation';
 import { McpPanel } from './components/McpPanel';
-import { AlertTriangle, Loader2, MessageSquare, Layers, Activity, Workflow, Feather, BookOpen, Network } from 'lucide-react';
+import { AlertTriangle, Loader2, MessageSquare, Layers, Activity, Workflow, Feather, BookOpen, Network, Store, Users, Headphones, Wallet } from 'lucide-react';
 import { mcpClient } from './services/mcpClient';
 
 // Lazy load heavy components
@@ -14,6 +14,10 @@ const AgentPlayground = React.lazy(() => import('./components/AgentPlayground'))
 const DreamJournal = React.lazy(() => import('./components/DreamJournal'));
 const NarrativeEngine = React.lazy(() => import('./components/NarrativeEngine'));
 const MemoryPalace = React.lazy(() => import('./components/MemoryPalace'));
+const AgentMarketplace = React.lazy(() => import('./components/AgentMarketplace'));
+const WarRooms = React.lazy(() => import('./components/WarRooms'));
+const VoiceFactory = React.lazy(() => import('./components/VoiceFactory'));
+const MonetizationDashboard = React.lazy(() => import('./components/MonetizationDashboard'));
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -154,7 +158,7 @@ const GlobalStyles = () => (
   `}} />
 );
 
-type ViewMode = 'agents' | 'chatboard' | 'factory' | 'playground' | 'journal' | 'narrative' | 'palace';
+type ViewMode = 'agents' | 'chatboard' | 'factory' | 'playground' | 'journal' | 'narrative' | 'palace' | 'marketplace' | 'warrooms' | 'voice' | 'credits';
 
 const AppContent: React.FC = () => {
   const [activeAgent, setActiveAgent] = useState<AgentType>(AgentType.OVERSEER);
@@ -342,6 +346,50 @@ const AppContent: React.FC = () => {
                 <Network size={14} />
                 Memory
               </button>
+              <button
+                onClick={() => setViewMode('marketplace')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  viewMode === 'marketplace'
+                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                    : 'text-white/40 hover:text-white/60 border border-transparent'
+                }`}
+              >
+                <Store size={14} />
+                Market
+              </button>
+              <button
+                onClick={() => setViewMode('warrooms')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  viewMode === 'warrooms'
+                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                    : 'text-white/40 hover:text-white/60 border border-transparent'
+                }`}
+              >
+                <Users size={14} />
+                War Rooms
+              </button>
+              <button
+                onClick={() => setViewMode('voice')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  viewMode === 'voice'
+                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                    : 'text-white/40 hover:text-white/60 border border-transparent'
+                }`}
+              >
+                <Headphones size={14} />
+                Voice
+              </button>
+              <button
+                onClick={() => setViewMode('credits')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  viewMode === 'credits'
+                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                    : 'text-white/40 hover:text-white/60 border border-transparent'
+                }`}
+              >
+                <Wallet size={14} />
+                Credits
+              </button>
             </div>
             <button
               onClick={() => setIsMcpOpen(true)}
@@ -370,6 +418,14 @@ const AppContent: React.FC = () => {
                 <NarrativeEngine />
               ) : viewMode === 'palace' ? (
                 <MemoryPalace />
+              ) : viewMode === 'marketplace' ? (
+                <AgentMarketplace />
+              ) : viewMode === 'warrooms' ? (
+                <WarRooms />
+              ) : viewMode === 'voice' ? (
+                <VoiceFactory />
+              ) : viewMode === 'credits' ? (
+                <MonetizationDashboard />
               ) : (
                 <div className="flex flex-col md:flex-row h-full">
                   <div className="order-2 md:order-1 flex-none z-30">
