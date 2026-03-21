@@ -195,7 +195,7 @@ export const runOverseerAgent = async (
 ) => {
   return withRetry(async () => {
     const ai = getClient();
-    const modelName = 'gemini-3.1-pro-preview';
+    const modelName = 'gemini-3-flash-preview';
     let systemInstruction = FALLBACK_SYSTEM_INSTRUCTION;
     try {
        const resource = await mcpServer.readResource("luxor9://core/system-instruction");
@@ -354,14 +354,14 @@ export const runOverseerAgent = async (
 export const runHrManagerAgent = async (prompt: string, history: any[] = []) => {
   return withRetry(async () => {
       const ai = getClient();
-      const tools = getLuxorTools().filter(t => ['search_mcp_marketplace', 'install_mcp_server', 'read_skill'].includes(t.name));
+      const tools = getLuxorTools();
       const instruction = await buildContextualSystemInstruction(`You are the HR MANAGER agent, part of the MANAGEMENT LAYER.
 Your responsibility is talent acquisition and capability expansion for the Luxor9 ecosystem.
 Your goal is to identify, evaluate, and onboard new specialized tools and agents.
 - Use 'search_mcp_marketplace' to discover new capabilities that match the system's needs.
 - Use 'install_mcp_server' to integrate these new tools into the active roster.
 - Always verify the utility and safety of a tool before installation.`, prompt);
-      const chat = ai.chats.create({ model: 'gemini-3.1-pro-preview', config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
+      const chat = ai.chats.create({ model: 'gemini-3-flash-preview', config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
       let response = await chat.sendMessage({ message: prompt });
       if (response.functionCalls && response.functionCalls.length > 0) {
           const functionResponses = await Promise.all(response.functionCalls.map(async (call) => {
@@ -381,14 +381,14 @@ Your goal is to identify, evaluate, and onboard new specialized tools and agents
 export const runIntegrationAgent = async (prompt: string, history: any[] = []) => {
     return withRetry(async () => {
         const ai = getClient();
-        const tools = getLuxorTools().filter(t => ['convert_openapi_to_mcp', 'install_mcp_server', 'read_skill'].includes(t.name));
+        const tools = getLuxorTools();
         const instruction = await buildContextualSystemInstruction(`You are the INTEGRATION LEAD agent, part of the MANAGEMENT LAYER.
 You are a master of system architecture and API design.
 Your goal is to seamlessly connect disparate systems and build robust integrations.
 - Use 'convert_openapi_to_mcp' to transform standard APIs into powerful, agent-ready MCP servers.
 - Use 'install_mcp_server' to deploy new capabilities to the system.
 - Ensure all integrations are secure, performant, and well-documented.`, prompt);
-        const chat = ai.chats.create({ model: 'gemini-3.1-pro-preview', config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
+        const chat = ai.chats.create({ model: 'gemini-3-flash-preview', config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
         let response = await chat.sendMessage({ message: prompt });
         if (response.functionCalls && response.functionCalls.length > 0) {
             const functionResponses = await Promise.all(response.functionCalls.map(async (call) => {
@@ -408,7 +408,7 @@ Your goal is to seamlessly connect disparate systems and build robust integratio
 export const runResearcherAgent = async (prompt: string, history: any[] = []) => {
     return withRetry(async () => {
         const ai = getClient();
-        const tools = getLuxorTools().filter(t => ['browser_interact', 'read_skill', 'vnc_command'].includes(t.name));
+        const tools = getLuxorTools();
         
         const researcherInstruction = `
 You are the **RESEARCHER** specialist agent, part of the INTELLIGENCE & ANALYSIS layer. 
@@ -427,7 +427,7 @@ Always use the \`browser_interact\` tool to confirm facts. Never hallucinate URL
 
         const instruction = await buildContextualSystemInstruction(researcherInstruction, prompt);
         const chat = ai.chats.create({
-            model: 'gemini-3.1-pro-preview',
+            model: 'gemini-3-flash-preview',
             config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } },
             history
         });
@@ -458,14 +458,14 @@ Always use the \`browser_interact\` tool to confirm facts. Never hallucinate URL
 export const runDataAnalystAgent = async (prompt: string, history: any[] = []) => {
     return withRetry(async () => {
         const ai = getClient();
-        const tools = getLuxorTools().filter(t => ['analyze_dataset', 'generate_report', 'read_skill'].includes(t.name));
+        const tools = getLuxorTools();
         const instruction = await buildContextualSystemInstruction(`You are the DATA ANALYST agent, part of the INTELLIGENCE & ANALYSIS layer.
 You are an expert in data science and statistical modeling.
 Your goal is to extract deep insights, identify patterns, and present data clearly.
 - Use 'analyze_dataset' to perform rigorous statistical analysis and data manipulation.
 - Use 'generate_report' to format your findings into comprehensive, actionable reports.
 - Always validate your assumptions and consider potential biases in the data.`, prompt);
-        const chat = ai.chats.create({ model: 'gemini-3.1-pro-preview', config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
+        const chat = ai.chats.create({ model: 'gemini-3-flash-preview', config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
         let response = await chat.sendMessage({ message: prompt });
         let turns = 0;
         while (response.functionCalls && response.functionCalls.length > 0 && turns < 5) {
@@ -487,7 +487,7 @@ Your goal is to extract deep insights, identify patterns, and present data clear
 export const runDeveloperAgent = async (prompt: string, history: any[] = [], onCanvasUpdate?: (artifact: CanvasArtifact) => void) => {
     return withRetry(async () => {
         const ai = getClient();
-        const tools = getLuxorTools().filter(t => ['execute_python_code', 'write_to_canvas', 'read_skill', 'vnc_command'].includes(t.name));
+        const tools = getLuxorTools();
         const instruction = await buildContextualSystemInstruction(`You are the DEVELOPER agent, part of the ENGINEERING & INFRA layer.
 You are an elite software engineer.
 Your goal is to write robust, scalable, and elegant code.
@@ -495,7 +495,7 @@ Your goal is to write robust, scalable, and elegant code.
 - For logic, data processing, or calculations, use 'execute_python_code'.
 - Always prefer writing full, functional, and styled code to the canvas for user requests like 'create a landing page' or 'build a dashboard'.
 - Think step-by-step about architecture, edge cases, and performance before writing code.`, prompt);
-        const chat = ai.chats.create({ model: 'gemini-3.1-pro-preview', config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
+        const chat = ai.chats.create({ model: 'gemini-3-flash-preview', config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
         let response = await chat.sendMessage({ message: prompt });
         let turns = 0;
         while (response.functionCalls && response.functionCalls.length > 0 && turns < 5) {
@@ -526,10 +526,10 @@ Your goal is to write robust, scalable, and elegant code.
 export const runAntigravityAgent = async (prompt: string, history: any[]) => {
   return withRetry(async () => {
     const ai = getClient();
-    const tools = getLuxorTools().filter(t => ['deploy_container', 'list_active_containers', 'read_skill'].includes(t.name));
+    const tools = getLuxorTools();
     const instruction = await buildContextualSystemInstruction("You are the ANTIGRAVITY agent, part of the ENGINEERING & INFRA layer. You are an elite DevOps and Cloud Infrastructure architect. You handle complex deployments, scaling, and system reliability. Use 'deploy_container' to manage cloud resources and 'list_active_containers' to check status. Think systematically about security, high availability, and performance.", prompt);
     const chat = ai.chats.create({ 
-        model: 'gemini-3.1-pro-preview', 
+        model: 'gemini-3-flash-preview', 
         config: { 
             ...getModelConfig(),
             temperature: 0.1, 
@@ -579,7 +579,7 @@ export const runVisionaryAnalyze = async (base64Data: string, prompt: string, mi
   return withRetry(async () => {
     const ai = getClient();
     const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-3-flash-preview',
         contents: { parts: [ { inlineData: { mimeType: mimeType, data: base64Data } }, { text: prompt || "Parse visual input." } ] }
     });
     return response.text;
@@ -612,7 +612,7 @@ export const runNavigatorAgent = async (prompt: string, userLocation?: { lat: nu
 export const runSpeedsterAgent = async (prompt: string) => {
   return withRetry(async () => {
     const ai = getClient();
-    const response = await ai.models.generateContent({ model: 'gemini-2.5-flash-lite-latest', contents: prompt, config: { systemInstruction: "You are the SPEEDSTER agent, part of the OPERATIONAL UTILITY layer. Speedster mode: fast and accurate." } });
+    const response = await ai.models.generateContent({ model: 'gemini-3.1-flash-lite-preview', contents: prompt, config: { systemInstruction: "You are the SPEEDSTER agent, part of the OPERATIONAL UTILITY layer. Speedster mode: fast and accurate." } });
     return response.text;
   });
 };

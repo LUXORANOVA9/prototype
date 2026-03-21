@@ -21,7 +21,7 @@ import { evaluateResponse } from '../utils/antiPatterns';
 import AntiPatternsWorker from '../utils/antiPatternsWorker?worker';
 import { mapMessagesToHistory } from '../utils/geminiHelpers';
 import { ChatMessage } from './ChatMessage';
-import { Send, Image as ImageIcon, Loader2, Mic, MicOff, Search, BrainCircuit, Paperclip, Activity, Layers, ShieldCheck, Smartphone, Clapperboard, MonitorPlay, Settings, Cpu, ChevronRight, Zap, Sparkles, X, ArrowRight, Square, Terminal, Code, Palette, Globe, Database, Network, Target, ChevronDown, Film, Monitor } from 'lucide-react';
+import { Send, Image as ImageIcon, Loader2, Mic, MicOff, Search, BrainCircuit, Paperclip, Activity, Layers, ShieldCheck, Smartphone, Clapperboard, MonitorPlay, Settings, Cpu, ChevronRight, Zap, Sparkles, X, ArrowRight, Square, Terminal, Code, Palette, Globe, Database, Network, Target, ChevronDown, Film, Monitor, Trash2 } from 'lucide-react';
 import { LiveInterface } from './LiveInterface';
 import { mcpRouter } from '../services/mcpRouter';
 import { memoryService } from '../services/memoryService';
@@ -721,7 +721,7 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                                        >
                                           {VIDEO_MODELS.map(m => (
                                              <option key={m.id} value={m.id} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200">
-                                               {m.name} {m.provider === 'google' ? '(Pro)' : ''}
+                                               {m.name}
                                              </option>
                                           ))}
                                        </select>

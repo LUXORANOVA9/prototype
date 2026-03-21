@@ -56,6 +56,22 @@ export const McpPanel: React.FC<Props> = ({ isOpen, onClose, isDarkMode, onToggl
   // Health State
   const [backendHealth, setBackendHealth] = useState<any>(null);
 
+  // Model Config State
+  const [modelConfig, setModelConfig] = useState({ temperature: 0.7, topP: 0.95, topK: 64, maxOutputTokens: 8192 });
+
+  useEffect(() => {
+      try {
+          const stored = localStorage.getItem('luxor9_model_config');
+          if (stored) setModelConfig(prev => ({ ...prev, ...JSON.parse(stored) }));
+      } catch(e){}
+  }, []);
+
+  const handleModelConfigChange = (key: string, value: number) => {
+      const newConfig = { ...modelConfig, [key]: value };
+      setModelConfig(newConfig);
+      localStorage.setItem('luxor9_model_config', JSON.stringify(newConfig));
+  };
+
   useEffect(() => {
     if (isOpen) {
       loadProfiles();
@@ -73,8 +89,7 @@ export const McpPanel: React.FC<Props> = ({ isOpen, onClose, isDarkMode, onToggl
 
   useEffect(() => {
       if (activeTab === 'system') {
-          const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-          fetch(`http://${host}:8080/health`)
+          fetch(`/api/health`)
             .then(res => res.json())
             .then(data => setBackendHealth(data))
             .catch(() => setBackendHealth(null));
@@ -605,61 +620,43 @@ export const McpPanel: React.FC<Props> = ({ isOpen, onClose, isDarkMode, onToggl
                                     </div>
                                     
                                     <div className="space-y-6">
-                                        {(() => {
-                                            const [config, setConfig] = useState({ temperature: 0.7, topP: 0.95, topK: 64, maxOutputTokens: 8192 });
-                                            useEffect(() => {
-                                                try {
-                                                    const stored = localStorage.getItem('luxor9_model_config');
-                                                    if (stored) setConfig({ ...config, ...JSON.parse(stored) });
-                                                } catch(e){}
-                                            }, []);
-                                            
-                                            const handleChange = (key: string, value: number) => {
-                                                const newConfig = { ...config, [key]: value };
-                                                setConfig(newConfig);
-                                                localStorage.setItem('luxor9_model_config', JSON.stringify(newConfig));
-                                            };
-
-                                            return (
                                                 <div className="space-y-6 bg-white dark:bg-zinc-900/50 p-6 rounded-xl border border-zinc-200 dark:border-white/5">
                                                     <div>
                                                         <div className="flex justify-between mb-2">
                                                             <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Temperature</label>
-                                                            <span className="text-xs font-mono text-zinc-500">{config.temperature.toFixed(2)}</span>
+                                                            <span className="text-xs font-mono text-zinc-500">{modelConfig.temperature.toFixed(2)}</span>
                                                         </div>
-                                                        <input type="range" min="0" max="2" step="0.1" value={config.temperature} onChange={e => handleChange('temperature', parseFloat(e.target.value))} className="w-full accent-indigo-500" />
+                                                        <input type="range" min="0" max="2" step="0.1" value={modelConfig.temperature} onChange={e => handleModelConfigChange('temperature', parseFloat(e.target.value))} className="w-full accent-indigo-500" />
                                                         <p className="text-[10px] text-zinc-500 mt-1">Controls randomness. Lower is more deterministic, higher is more creative.</p>
                                                     </div>
                                                     
                                                     <div>
                                                         <div className="flex justify-between mb-2">
                                                             <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Top P</label>
-                                                            <span className="text-xs font-mono text-zinc-500">{config.topP.toFixed(2)}</span>
+                                                            <span className="text-xs font-mono text-zinc-500">{modelConfig.topP.toFixed(2)}</span>
                                                         </div>
-                                                        <input type="range" min="0" max="1" step="0.05" value={config.topP} onChange={e => handleChange('topP', parseFloat(e.target.value))} className="w-full accent-indigo-500" />
+                                                        <input type="range" min="0" max="1" step="0.05" value={modelConfig.topP} onChange={e => handleModelConfigChange('topP', parseFloat(e.target.value))} className="w-full accent-indigo-500" />
                                                         <p className="text-[10px] text-zinc-500 mt-1">Nucleus sampling. Limits token selection to the top cumulative probability.</p>
                                                     </div>
 
                                                     <div>
                                                         <div className="flex justify-between mb-2">
                                                             <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Top K</label>
-                                                            <span className="text-xs font-mono text-zinc-500">{config.topK}</span>
+                                                            <span className="text-xs font-mono text-zinc-500">{modelConfig.topK}</span>
                                                         </div>
-                                                        <input type="range" min="1" max="100" step="1" value={config.topK} onChange={e => handleChange('topK', parseInt(e.target.value))} className="w-full accent-indigo-500" />
+                                                        <input type="range" min="1" max="100" step="1" value={modelConfig.topK} onChange={e => handleModelConfigChange('topK', parseInt(e.target.value))} className="w-full accent-indigo-500" />
                                                         <p className="text-[10px] text-zinc-500 mt-1">Limits token selection to the top K most likely tokens.</p>
                                                     </div>
                                                     
                                                     <div>
                                                         <div className="flex justify-between mb-2">
                                                             <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Max Output Tokens</label>
-                                                            <span className="text-xs font-mono text-zinc-500">{config.maxOutputTokens}</span>
+                                                            <span className="text-xs font-mono text-zinc-500">{modelConfig.maxOutputTokens}</span>
                                                         </div>
-                                                        <input type="range" min="1024" max="8192" step="1024" value={config.maxOutputTokens} onChange={e => handleChange('maxOutputTokens', parseInt(e.target.value))} className="w-full accent-indigo-500" />
+                                                        <input type="range" min="1024" max="8192" step="1024" value={modelConfig.maxOutputTokens} onChange={e => handleModelConfigChange('maxOutputTokens', parseInt(e.target.value))} className="w-full accent-indigo-500" />
                                                         <p className="text-[10px] text-zinc-500 mt-1">Maximum length of the generated response.</p>
                                                     </div>
                                                 </div>
-                                            );
-                                        })()}
                                     </div>
                                 </MotionDiv>
                             )}
@@ -680,7 +677,7 @@ export const McpPanel: React.FC<Props> = ({ isOpen, onClose, isDarkMode, onToggl
                                             <div className="p-4 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl animate-in slide-in-from-top-2">
                                                 <label className="text-[10px] uppercase text-zinc-500 font-bold mb-2 block">SSE Endpoint URL</label>
                                                 <div className="flex gap-2">
-                                                    <input autoFocus type="text" placeholder="http://localhost:8080/sse" className="flex-1 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm focus:border-amber-500 outline-none font-mono text-zinc-900 dark:text-zinc-100" value={newServerUrl} onChange={(e) => setNewServerUrl(e.target.value)} />
+                                                    <input autoFocus type="text" placeholder="/api/sse" className="flex-1 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm focus:border-amber-500 outline-none font-mono text-zinc-900 dark:text-zinc-100" value={newServerUrl} onChange={(e) => setNewServerUrl(e.target.value)} />
                                                     <button onClick={handleAddServer} className="px-4 bg-amber-600 text-white font-bold rounded-lg text-xs hover:bg-amber-500 shadow-sm">CONNECT</button>
                                                 </div>
                                             </div>
@@ -731,7 +728,7 @@ export const McpPanel: React.FC<Props> = ({ isOpen, onClose, isDarkMode, onToggl
                                             </div>
                                         ) : (
                                             <div className="text-xs text-zinc-500">
-                                                Cannot connect to orchestration layer. Ensure backend service is running on port 8080.
+                                                Cannot connect to orchestration layer. Ensure backend service is running.
                                             </div>
                                         )}
                                     </div>

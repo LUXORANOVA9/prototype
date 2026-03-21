@@ -11,8 +11,8 @@ export const getEmbedding = async (text: string): Promise<number[] | null> => {
     try {
         const ai = getClient();
         const result = await ai.models.embedContent({
-            model: 'text-embedding-004',
-            contents: { parts: [{ text }] }
+            model: 'gemini-embedding-2-preview',
+            contents: [text]
         });
         return result.embeddings?.[0]?.values || null;
     } catch (e) {

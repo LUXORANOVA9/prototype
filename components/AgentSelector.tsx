@@ -78,11 +78,11 @@ const AgentItem: React.FC<{
             <button
                 onClick={() => onSelect(agent.id)}
                 className={`
-                    relative flex items-center gap-3 p-2.5 rounded-sm transition-all duration-200 group/btn
+                    relative flex items-center gap-3 p-2 rounded-lg transition-all duration-200 group/btn
                     border border-transparent
                     ${isActive 
-                        ? 'bg-zinc-200 dark:bg-zinc-900 border-zinc-300 dark:border-white/10 text-zinc-900 dark:text-zinc-100 shadow-sm' 
-                        : 'hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
+                        ? 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-zinc-100 shadow-sm' 
+                        : 'hover:bg-white/60 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                     }
                 `}
                 style={{ marginLeft: `${level * 12}px` }}
@@ -110,30 +110,33 @@ const AgentItem: React.FC<{
             </button>
 
             {agent.subGroups && isExpanded && (
-                <div className="flex flex-col mt-1 relative">
+                <div className="flex flex-col mt-2 gap-2 relative">
                     {/* Hierarchy Line */}
                     <div 
-                        className="absolute left-0 top-0 bottom-4 w-px bg-zinc-200 dark:bg-white/5"
+                        className="absolute left-0 top-0 bottom-4 w-px bg-zinc-200 dark:bg-white/10"
                         style={{ marginLeft: `${(level * 12) + 16}px` }}
                     ></div>
 
                     {agent.subGroups.map((group, gIdx) => (
-                        <div key={gIdx} className="flex flex-col mb-2">
-                            <div 
-                                className="px-3 py-1 text-[8px] font-bold text-zinc-400 dark:text-zinc-600 tracking-[0.2em] font-mono flex items-center gap-2 mb-1 opacity-50"
-                                style={{ marginLeft: `${(level + 1) * 12}px` }}
-                            >
+                        <div 
+                            key={gIdx} 
+                            className="flex flex-col py-1.5 relative rounded-lg bg-zinc-200/50 dark:bg-white/[0.03] border border-zinc-300/50 dark:border-white/[0.05] mr-2"
+                            style={{ marginLeft: `${(level * 12) + 24}px` }}
+                        >
+                            <div className="px-3 py-1 text-[9px] font-bold text-zinc-500 dark:text-zinc-400 tracking-[0.15em] font-mono flex items-center gap-2 mb-1 uppercase">
                                 {group.label}
                             </div>
-                            {group.agents.map(subAgent => (
-                                <AgentItem 
-                                    key={subAgent.id} 
-                                    agent={subAgent} 
-                                    activeAgent={activeAgent} 
-                                    onSelect={onSelect} 
-                                    level={level + 1}
-                                />
-                            ))}
+                            <div className="flex flex-col gap-0.5 pr-1">
+                                {group.agents.map(subAgent => (
+                                    <AgentItem 
+                                        key={subAgent.id} 
+                                        agent={subAgent} 
+                                        activeAgent={activeAgent} 
+                                        onSelect={onSelect} 
+                                        level={0}
+                                    />
+                                ))}
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -150,8 +153,7 @@ export const AgentSelector: React.FC<Props> = ({ activeAgent, onSelect, onOpenMc
   useEffect(() => {
       const checkHealth = async () => {
           try {
-              const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-              const res = await fetch(`http://${host}:8080/health`).catch(() => null);
+              const res = await fetch(`/api/health`).catch(() => null);
               if (res && res.ok) {
                   setBackendHealth('ok');
               } else {
@@ -275,21 +277,23 @@ export const AgentSelector: React.FC<Props> = ({ activeAgent, onSelect, onOpenMc
             </div>
 
             {agentGroups.map((group, idx) => (
-                <div key={idx} className="flex flex-col gap-1">
-                    <div className="px-3 py-1 text-[9px] font-bold text-zinc-400 dark:text-zinc-600 tracking-[0.2em] font-mono flex items-center gap-2 mb-1 opacity-70">
-                        <div className="w-1 h-1 rounded-full bg-zinc-400 dark:bg-zinc-700"></div>
+                <div key={idx} className="flex flex-col gap-2 mb-4 bg-zinc-100/50 dark:bg-white/[0.02] border border-zinc-200/50 dark:border-white/[0.05] rounded-xl p-2 mx-2">
+                    <div className="px-2 py-1.5 text-[10px] font-bold text-zinc-700 dark:text-zinc-300 tracking-[0.2em] font-mono flex items-center gap-2 uppercase border-b border-zinc-200/80 dark:border-white/10 mb-1">
+                        <div className="w-1.5 h-1.5 rounded-sm bg-amber-500"></div>
                         {group.label}
                     </div>
                     
-                    {group.agents.map(agent => (
-                        <AgentItem 
-                            key={agent.id} 
-                            agent={agent} 
-                            activeAgent={activeAgent} 
-                            onSelect={onSelect} 
-                            level={0}
-                        />
-                    ))}
+                    <div className="flex flex-col gap-1">
+                        {group.agents.map(agent => (
+                            <AgentItem 
+                                key={agent.id} 
+                                agent={agent} 
+                                activeAgent={activeAgent} 
+                                onSelect={onSelect} 
+                                level={0}
+                            />
+                        ))}
+                    </div>
                 </div>
             ))}
           </div>

@@ -23,24 +23,6 @@ export const VIDEO_MODELS: VideoModel[] = [
     apiPath: 'THUDM/CogVideoX-5b'
   },
   {
-    id: 'veo-3.1-fast-generate-preview',
-    name: 'Veo Fast',
-    provider: 'google',
-    tier: 3,
-    capabilities: ['t2v', 'i2v'],
-    description: 'Google Veo Fast. Requires paid API key.',
-    apiPath: 'veo-3.1-fast-generate-preview'
-  },
-  {
-    id: 'veo-3.1-generate-preview',
-    name: 'Veo High Quality',
-    provider: 'google',
-    tier: 3,
-    capabilities: ['t2v', 'i2v'],
-    description: 'Google Veo High Quality. Requires paid API key.',
-    apiPath: 'veo-3.1-generate-preview'
-  },
-  {
     id: 'stabilityai/stable-video-diffusion-img2vid-xt-1-1',
     name: 'Stable Video Diffusion (SVD)',
     provider: 'huggingface',

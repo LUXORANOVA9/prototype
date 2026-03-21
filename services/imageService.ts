@@ -50,7 +50,7 @@ const generateWithGemini = async (config: ImageGenerationConfig, apiKey?: string
     
     const ai = new GoogleGenAI({ apiKey });
     const isPro = config.size === '2K' || config.size === '4K';
-    const model = isPro ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
+    const model = isPro ? 'gemini-3.1-flash-image-preview' : 'gemini-2.5-flash-image';
     
     const genConfig: any = { imageConfig: { aspectRatio: config.aspectRatio } };
     if (isPro) genConfig.imageConfig.imageSize = config.size;
