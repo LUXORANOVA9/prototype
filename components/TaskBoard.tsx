@@ -246,7 +246,7 @@ export const TaskBoard: React.FC<Props> = ({
                                 <div className="flex items-center gap-1.5">
                                     {/* Indicators */}
                                     {task.isParallel && (
-                                        <div className="p-1 rounded bg-violet-100 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-400" title="Parallel Execution Enabled">
+                                        <div className="p-1 rounded bg-violet-100 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-400 animate-pulse" title="Parallel Execution Enabled">
                                             <GitBranch size={10} />
                                         </div>
                                     )}
@@ -302,7 +302,7 @@ export const TaskBoard: React.FC<Props> = ({
                             )}
 
                             {task.isParallel && !subtaskCount && (
-                                <div className="mt-1 text-[9px] text-violet-600 dark:text-violet-500 font-mono flex items-center gap-1 uppercase tracking-wider">
+                                <div className="mt-1 text-[9px] text-violet-600 dark:text-violet-500 font-mono flex items-center gap-1 uppercase tracking-wider animate-pulse">
                                     <GitBranch size={8}/> Parallel Execution Enabled
                                 </div>
                             )}

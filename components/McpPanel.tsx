@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { mcpRouter } from '../services/mcpRouter';
 import { mcpClient } from '../services/mcpClient';
 import { McpProfile, McpPlatform } from '../types';
-import { Network, Plus, Trash2, Check, X, Key, Cloud, Sparkles, Box, Terminal, Cpu, Zap, Ghost, Layers, Server, Globe, ExternalLink, Activity, Sun, Moon, Laptop, Shield, Lock, AlertTriangle, RefreshCw, CircleCheck, CircleX, CreditCard, ChevronLeft, Search, Eye, EyeOff, Info, Mic, Database, ArrowRight, LayoutGrid, List } from 'lucide-react';
+import { Network, Plus, Trash2, Check, X, Key, Cloud, Sparkles, Box, Terminal, Cpu, Zap, Ghost, Layers, Server, Globe, ExternalLink, Activity, Sun, Moon, Laptop, Shield, Lock, AlertTriangle, RefreshCw, CircleCheck, CircleX, CreditCard, ChevronLeft, Search, Eye, EyeOff, Info, Mic, Database, ArrowRight, LayoutGrid, List, Settings } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -31,7 +31,7 @@ const PLATFORMS: { id: McpPlatform; label: string; icon: any; color: string; url
   { id: 'replicate', label: 'Replicate', icon: Layers, color: 'text-purple-400', url: 'https://replicate.com/account/api-tokens', description: 'Hosting for specialized generative models.', category: 'Specialized' },
 ];
 
-type Tab = 'general' | 'keys' | 'mcp' | 'system';
+type Tab = 'general' | 'keys' | 'models' | 'mcp' | 'system';
 type WizardStep = 'list' | 'select' | 'configure';
 
 export const McpPanel: React.FC<Props> = ({ isOpen, onClose, isDarkMode, onToggleTheme }) => {
@@ -248,6 +248,7 @@ export const McpPanel: React.FC<Props> = ({ isOpen, onClose, isDarkMode, onToggl
                             {[
                                 { id: 'general', label: 'Preferences', icon: Laptop },
                                 { id: 'keys', label: 'Credentials', icon: Lock },
+                                { id: 'models', label: 'Model Config', icon: Settings },
                                 { id: 'mcp', label: 'Neural Nodes', icon: Network },
                                 { id: 'system', label: 'Diagnostics', icon: Activity },
                             ].map((tab) => (
@@ -593,6 +594,74 @@ export const McpPanel: React.FC<Props> = ({ isOpen, onClose, isDarkMode, onToggl
                                         )}
                                     </AnimatePresence>
                                 </div>
+                            )}
+
+                            {/* --- MODELS TAB --- */}
+                            {activeTab === 'models' && (
+                                <MotionDiv initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 max-w-2xl">
+                                    <div className="bg-gradient-to-r from-indigo-500/10 to-blue-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-xl p-5">
+                                        <h3 className="font-bold text-sm text-indigo-900 dark:text-indigo-100 mb-2 flex items-center gap-2"><Settings size={16}/> Model Configuration</h3>
+                                        <p className="text-xs text-indigo-800/70 dark:text-indigo-200/60 leading-relaxed">Adjust generation parameters for the core reasoning models. These settings affect creativity, determinism, and output length.</p>
+                                    </div>
+                                    
+                                    <div className="space-y-6">
+                                        {(() => {
+                                            const [config, setConfig] = useState({ temperature: 0.7, topP: 0.95, topK: 64, maxOutputTokens: 8192 });
+                                            useEffect(() => {
+                                                try {
+                                                    const stored = localStorage.getItem('luxor9_model_config');
+                                                    if (stored) setConfig({ ...config, ...JSON.parse(stored) });
+                                                } catch(e){}
+                                            }, []);
+                                            
+                                            const handleChange = (key: string, value: number) => {
+                                                const newConfig = { ...config, [key]: value };
+                                                setConfig(newConfig);
+                                                localStorage.setItem('luxor9_model_config', JSON.stringify(newConfig));
+                                            };
+
+                                            return (
+                                                <div className="space-y-6 bg-white dark:bg-zinc-900/50 p-6 rounded-xl border border-zinc-200 dark:border-white/5">
+                                                    <div>
+                                                        <div className="flex justify-between mb-2">
+                                                            <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Temperature</label>
+                                                            <span className="text-xs font-mono text-zinc-500">{config.temperature.toFixed(2)}</span>
+                                                        </div>
+                                                        <input type="range" min="0" max="2" step="0.1" value={config.temperature} onChange={e => handleChange('temperature', parseFloat(e.target.value))} className="w-full accent-indigo-500" />
+                                                        <p className="text-[10px] text-zinc-500 mt-1">Controls randomness. Lower is more deterministic, higher is more creative.</p>
+                                                    </div>
+                                                    
+                                                    <div>
+                                                        <div className="flex justify-between mb-2">
+                                                            <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Top P</label>
+                                                            <span className="text-xs font-mono text-zinc-500">{config.topP.toFixed(2)}</span>
+                                                        </div>
+                                                        <input type="range" min="0" max="1" step="0.05" value={config.topP} onChange={e => handleChange('topP', parseFloat(e.target.value))} className="w-full accent-indigo-500" />
+                                                        <p className="text-[10px] text-zinc-500 mt-1">Nucleus sampling. Limits token selection to the top cumulative probability.</p>
+                                                    </div>
+
+                                                    <div>
+                                                        <div className="flex justify-between mb-2">
+                                                            <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Top K</label>
+                                                            <span className="text-xs font-mono text-zinc-500">{config.topK}</span>
+                                                        </div>
+                                                        <input type="range" min="1" max="100" step="1" value={config.topK} onChange={e => handleChange('topK', parseInt(e.target.value))} className="w-full accent-indigo-500" />
+                                                        <p className="text-[10px] text-zinc-500 mt-1">Limits token selection to the top K most likely tokens.</p>
+                                                    </div>
+                                                    
+                                                    <div>
+                                                        <div className="flex justify-between mb-2">
+                                                            <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Max Output Tokens</label>
+                                                            <span className="text-xs font-mono text-zinc-500">{config.maxOutputTokens}</span>
+                                                        </div>
+                                                        <input type="range" min="1024" max="8192" step="1024" value={config.maxOutputTokens} onChange={e => handleChange('maxOutputTokens', parseInt(e.target.value))} className="w-full accent-indigo-500" />
+                                                        <p className="text-[10px] text-zinc-500 mt-1">Maximum length of the generated response.</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                </MotionDiv>
                             )}
 
                             {/* --- MCP TAB --- */}

@@ -679,12 +679,12 @@ class LuxorMcpServer {
     this.registerTool(
       {
         name: "write_to_canvas",
-        description: "Write full code files or diagrams to the visual canvas for the user to see and interact with. Use this for creating React components, HTML pages, Mermaid diagrams, or complex multi-file applications.",
+        description: "Write full code files or diagrams to the visual canvas for the user to see and interact with. Use this for creating React components, HTML pages, Mermaid diagrams, Flutter UI, or complex multi-file applications.",
         inputSchema: {
           type: "object",
           properties: {
             title: { type: "string", description: "Title of the artifact (e.g., 'Login Component')" },
-            language: { type: "string", enum: ["html", "react", "python", "json", "markdown", "mermaid"], description: "Programming language of the content. Use 'mermaid' for diagrams." },
+            language: { type: "string", enum: ["html", "react", "python", "json", "markdown", "mermaid", "flutter"], description: "Programming language of the content. Use 'mermaid' for diagrams, 'flutter' for Flutter UI." },
             content: { type: "string", description: "Full source code or diagram definition" }
           },
           required: ["title", "language", "content"]

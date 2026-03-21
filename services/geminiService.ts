@@ -8,6 +8,7 @@ import { generateImage } from "./imageService";
 import { memoryService } from "./memoryService";
 import { getClient } from "./aiCore";
 import { getAvailableSkillsList, getSkillContent } from "./skillsService";
+import { getModelConfig } from "../utils/modelConfig";
 
 /**
  * Enhanced Utility for exponential backoff with jitter to mitigate 429s.
@@ -203,6 +204,7 @@ export const runOverseerAgent = async (
     systemInstruction = await buildContextualSystemInstruction(systemInstruction, prompt);
     const tools = getLuxorTools();
     const config: any = {
+      ...getModelConfig(),
       systemInstruction: systemInstruction,
       tools: [{ functionDeclarations: tools }],
       thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH }
@@ -249,7 +251,31 @@ export const runOverseerAgent = async (
                   };
                };
                const newTasks = (args.tasks as any[]).map((t, idx) => mapTask(t, idx));
-               tasks = [...tasks, ...newTasks];
+               
+               // Auto-detect independent tasks and set isParallel
+               const allTasks = [...tasks, ...newTasks];
+               const dependsOn = (t1: Task, t2: Task, visited = new Set<string>()): boolean => {
+                   if (visited.has(t1.id)) return false;
+                   visited.add(t1.id);
+                   if (!t1.dependencies || t1.dependencies.length === 0) return false;
+                   if (t1.dependencies.includes(t2.id)) return true;
+                   return t1.dependencies.some(depId => {
+                       const depTask = allTasks.find(t => t.id === depId);
+                       return depTask ? dependsOn(depTask, t2, visited) : false;
+                   });
+               };
+
+               allTasks.forEach(t1 => {
+                   const isIndependent = allTasks.some(t2 => {
+                       if (t1.id === t2.id) return false;
+                       return !dependsOn(t1, t2) && !dependsOn(t2, t1);
+                   });
+                   if (isIndependent) {
+                       t1.isParallel = true;
+                   }
+               });
+               
+               tasks = allTasks;
             }
             if (call.name === 'parallel_dispatch' && args.dispatches) {
                 if (onConcurrencyChange) onConcurrencyChange(args.dispatches.length);
@@ -335,7 +361,7 @@ Your goal is to identify, evaluate, and onboard new specialized tools and agents
 - Use 'search_mcp_marketplace' to discover new capabilities that match the system's needs.
 - Use 'install_mcp_server' to integrate these new tools into the active roster.
 - Always verify the utility and safety of a tool before installation.`, prompt);
-      const chat = ai.chats.create({ model: 'gemini-3.1-pro-preview', config: { systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
+      const chat = ai.chats.create({ model: 'gemini-3.1-pro-preview', config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
       let response = await chat.sendMessage({ message: prompt });
       if (response.functionCalls && response.functionCalls.length > 0) {
           const functionResponses = await Promise.all(response.functionCalls.map(async (call) => {
@@ -362,7 +388,7 @@ Your goal is to seamlessly connect disparate systems and build robust integratio
 - Use 'convert_openapi_to_mcp' to transform standard APIs into powerful, agent-ready MCP servers.
 - Use 'install_mcp_server' to deploy new capabilities to the system.
 - Ensure all integrations are secure, performant, and well-documented.`, prompt);
-        const chat = ai.chats.create({ model: 'gemini-3.1-pro-preview', config: { systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
+        const chat = ai.chats.create({ model: 'gemini-3.1-pro-preview', config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
         let response = await chat.sendMessage({ message: prompt });
         if (response.functionCalls && response.functionCalls.length > 0) {
             const functionResponses = await Promise.all(response.functionCalls.map(async (call) => {
@@ -402,7 +428,7 @@ Always use the \`browser_interact\` tool to confirm facts. Never hallucinate URL
         const instruction = await buildContextualSystemInstruction(researcherInstruction, prompt);
         const chat = ai.chats.create({
             model: 'gemini-3.1-pro-preview',
-            config: { systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } },
+            config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } },
             history
         });
         
@@ -439,7 +465,7 @@ Your goal is to extract deep insights, identify patterns, and present data clear
 - Use 'analyze_dataset' to perform rigorous statistical analysis and data manipulation.
 - Use 'generate_report' to format your findings into comprehensive, actionable reports.
 - Always validate your assumptions and consider potential biases in the data.`, prompt);
-        const chat = ai.chats.create({ model: 'gemini-3.1-pro-preview', config: { systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
+        const chat = ai.chats.create({ model: 'gemini-3.1-pro-preview', config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
         let response = await chat.sendMessage({ message: prompt });
         let turns = 0;
         while (response.functionCalls && response.functionCalls.length > 0 && turns < 5) {
@@ -465,11 +491,11 @@ export const runDeveloperAgent = async (prompt: string, history: any[] = [], onC
         const instruction = await buildContextualSystemInstruction(`You are the DEVELOPER agent, part of the ENGINEERING & INFRA layer.
 You are an elite software engineer.
 Your goal is to write robust, scalable, and elegant code.
-- For complex apps, UI components, or visualizations, use 'write_to_canvas' (supports HTML/React/Mermaid).
+- For complex apps, UI components, or visualizations, use 'write_to_canvas' (supports HTML/React/Mermaid/Flutter).
 - For logic, data processing, or calculations, use 'execute_python_code'.
 - Always prefer writing full, functional, and styled code to the canvas for user requests like 'create a landing page' or 'build a dashboard'.
 - Think step-by-step about architecture, edge cases, and performance before writing code.`, prompt);
-        const chat = ai.chats.create({ model: 'gemini-3.1-pro-preview', config: { systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
+        const chat = ai.chats.create({ model: 'gemini-3.1-pro-preview', config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
         let response = await chat.sendMessage({ message: prompt });
         let turns = 0;
         while (response.functionCalls && response.functionCalls.length > 0 && turns < 5) {
@@ -505,6 +531,7 @@ export const runAntigravityAgent = async (prompt: string, history: any[]) => {
     const chat = ai.chats.create({ 
         model: 'gemini-3.1-pro-preview', 
         config: { 
+            ...getModelConfig(),
             temperature: 0.1, 
             systemInstruction: instruction, 
             tools: [{ functionDeclarations: tools }],
@@ -595,10 +622,10 @@ export const runCommunicatorTTS = async (text: string) => {
     const ai = getClient();
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: text }] }],
+        contents: [{ parts: [{ text: `Speak the following text exactly: ${text}` }] }],
         config: {
             responseModalities: [Modality.AUDIO],
-            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Fenrir' } } },
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } },
         },
     });
     return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
@@ -628,8 +655,8 @@ export const connectLiveSession = async (onOpen: () => void, onAudioData: (b64: 
         },
         config: {
             responseModalities: [Modality.AUDIO],
-            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
-            systemInstruction: "Live link established."
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } }, // Changed to Zephyr for a more distinct persona
+            systemInstruction: "You are Luxora, an advanced luxor9 model AI assistant. You are highly intelligent, elegant, and responsive. You communicate clearly and concisely through voice. Your tone is sophisticated and helpful."
         }
     });
 };

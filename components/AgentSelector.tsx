@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { AgentStatus, AgentType } from '../types';
-import { Eye, Brain, Video, Mic, MapPin, Zap, Server, Settings, AlertCircle, Globe, Users, Wrench, BarChart3, Terminal, Layers, Command, Cpu, Network, Sun, Moon, Circle, ChevronDown } from 'lucide-react';
+import { Eye, Brain, Video, Mic, MapPin, Zap, Server, Settings, AlertCircle, Globe, Users, Wrench, BarChart3, Terminal, Layers, Command, Cpu, Network, Sun, Moon, Circle, ChevronDown, ShieldCheck, Database, Code2, Sparkles } from 'lucide-react';
 import { mcpRouter } from '../services/mcpRouter';
+import { AVAILABLE_SKILLS } from '../services/skillsService';
 import agentGroupsData from '../public/agents.json';
 
 interface Props {
@@ -235,6 +236,44 @@ export const AgentSelector: React.FC<Props> = ({ activeAgent, onSelect, onOpenMc
 
           {/* Desktop Vertical Groups */}
           <div className="hidden md:flex flex-col gap-6">
+            {/* System Load (New) */}
+            <div className="px-3 flex flex-col gap-2 mb-2">
+                <div className="flex justify-between items-center text-[8px] font-mono text-zinc-400 dark:text-zinc-600 uppercase tracking-widest">
+                    <span>Neural Load</span>
+                    <span className="text-amber-500">{(Math.random() * 15 + 5).toFixed(1)}%</span>
+                </div>
+                <div className="h-0.5 w-full bg-zinc-200 dark:bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-500/50 w-[12%] animate-pulse"></div>
+                </div>
+            </div>
+
+            {/* Skill Matrix (New) */}
+            <div className="px-3 flex flex-col gap-3 mb-4">
+                <div className="text-[9px] font-bold text-zinc-400 dark:text-zinc-600 tracking-[0.2em] font-mono flex items-center gap-2 opacity-70 uppercase">
+                    <Sparkles size={10} />
+                    Active Skills
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                    {Object.keys(AVAILABLE_SKILLS).map(skillId => (
+                        <div 
+                            key={skillId} 
+                            title={skillId}
+                            className="aspect-square rounded bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/5 flex items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-amber-500 hover:border-amber-500/30 transition-all cursor-help group relative"
+                        >
+                            {skillId === 'composio' ? <Network size={12} /> : 
+                             skillId === 'mcp' ? <Layers size={12} /> :
+                             skillId === 'vision' ? <Eye size={12} /> :
+                             <Zap size={12} />}
+                            
+                            {/* Tooltip */}
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-900 text-white text-[8px] rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+                                {skillId.replace('_', ' ')}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
             {agentGroups.map((group, idx) => (
                 <div key={idx} className="flex flex-col gap-1">
                     <div className="px-3 py-1 text-[9px] font-bold text-zinc-400 dark:text-zinc-600 tracking-[0.2em] font-mono flex items-center gap-2 mb-1 opacity-70">

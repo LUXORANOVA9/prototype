@@ -55,6 +55,22 @@ export const CanvasPanel: React.FC<Props> = ({ artifact, onClose, className }) =
        `;
     }
 
+    if (artifact.type === 'flutter') {
+      return `
+        <html>
+          <body style="background:#1a1a1a;color:#eee;font-family:system-ui, sans-serif;padding:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;">
+             <div style="background:#2a2a2a;padding:30px;border-radius:16px;border:1px solid #444;max-width:500px;">
+                 <h2 style="color:#54C5F8;margin-top:0;">Flutter UI Generated</h2>
+                 <p style="color:#aaa;line-height:1.6;">The Flutter Dart code has been generated successfully. To view and interact with this UI, please copy the code and run it in your local Flutter environment or an online playground.</p>
+                 <div style="margin-top:24px;display:flex;gap:12px;justify-content:center;">
+                     <a href="https://dartpad.dev/flutter" target="_blank" style="background:#54C5F8;color:#000;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:14px;">Open DartPad</a>
+                 </div>
+             </div>
+          </body>
+        </html>
+      `;
+    }
+
     if (artifact.type === 'html' || artifact.type === 'react') {
       // Inject base styles for better preview
       const baseStyles = `

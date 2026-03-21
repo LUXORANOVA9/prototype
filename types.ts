@@ -151,7 +151,7 @@ export interface McpConnection {
 export interface CanvasArtifact {
   id: string;
   title: string;
-  type: 'html' | 'react' | 'python' | 'markdown' | 'json' | 'mermaid';
+  type: 'html' | 'react' | 'python' | 'markdown' | 'json' | 'mermaid' | 'flutter';
   content: string;
   timestamp: number;
 }
