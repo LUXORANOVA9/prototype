@@ -14,19 +14,23 @@ import {
   runIntegrationAgent, 
   runDataAnalystAgent, 
   runDeveloperAgent,
-  runDirectorAgent
+  runDirectorAgent,
+  runAiEmployeeAgent
 } from '../services/geminiService';
 import { generateVideo, VIDEO_MODELS } from '../services/videoService';
 import { evaluateResponse } from '../utils/antiPatterns';
 import AntiPatternsWorker from '../utils/antiPatternsWorker?worker';
 import { mapMessagesToHistory } from '../utils/geminiHelpers';
 import { ChatMessage } from './ChatMessage';
-import { Send, Image as ImageIcon, Loader2, Mic, MicOff, Search, BrainCircuit, Paperclip, Activity, Layers, ShieldCheck, Smartphone, Clapperboard, MonitorPlay, Settings, Cpu, ChevronRight, Zap, Sparkles, X, ArrowRight, Square, Terminal, Code, Palette, Globe, Database, Network, Target, ChevronDown, Film, Monitor, Trash2 } from 'lucide-react';
+import { Send, Image as ImageIcon, Loader2, Mic, MicOff, Search, BrainCircuit, Paperclip, Activity, Layers, ShieldCheck, Smartphone, Clapperboard, MonitorPlay, Settings, Cpu, ChevronRight, Zap, Sparkles, X, ArrowRight, Square, Terminal, Code, Palette, Globe, Database, Network, Target, ChevronDown, Film, Monitor, Trash2, Users, Bot } from 'lucide-react';
 import { LiveInterface } from './LiveInterface';
+import { LivePreview } from './LivePreview';
 import { mcpRouter } from '../services/mcpRouter';
 import { memoryService } from '../services/memoryService';
+import { telemetryService } from '../services/telemetryService';
 import { CanvasPanel } from './CanvasPanel';
 import { NeuralCore } from './NeuralCore';
+import { AgentSandbox } from './AgentSandbox';
 import { VncViewer } from './VncViewer';
 
 const STARTER_PROMPTS: Partial<Record<AgentType, { label: string; prompt: string; icon: any }[]>> = {
@@ -62,6 +66,17 @@ const STARTER_PROMPTS: Partial<Record<AgentType, { label: string; prompt: string
       { label: "Market Research", prompt: "Research the latest trends in Generative AI for 2024 and summarize key players.", icon: Globe },
       { label: "Tech Deep Dive", prompt: "Explain the differences between Transformer architecture and SSMs (State Space Models).", icon: Search },
       { label: "Competitor Analysis", prompt: "Find and analyze top 3 competitors in the project management software space.", icon: Target }
+    ],
+    [AgentType.AI_EMPLOYEE]: [
+      { label: "Onboarding", prompt: "Hi Nova, I'm a new hire. Can you help me get started with the company's workflows?", icon: Users },
+      { label: "Task Management", prompt: "I'm feeling overwhelmed with my tasks today. Can you help me prioritize and manage them?", icon: Activity },
+      { label: "Project Update", prompt: "We just hit a major milestone on the Phoenix project! Let's celebrate and plan the next steps.", icon: Sparkles }
+    ],
+    [AgentType.BRAND_ARCHITECT]: [
+      { label: "Slide Architect", prompt: "Generate Slide 4 (Factory) using Luxor9 brand voice.", icon: Sparkles },
+      { label: "Tagline Generator", prompt: "Generate 10 brand taglines for Luxor9.", icon: Target },
+      { label: "Hero Copy", prompt: "Generate homepage hero section for Luxor9.", icon: Globe },
+      { label: "Pitch Script", prompt: "Generate 1-minute pitch script for Luxor9.", icon: Film }
     ]
 };
 
@@ -146,6 +161,8 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
   const [showCanvas, setShowCanvas] = useState(false);
   const [showNeuralCore, setShowNeuralCore] = useState(false);
   const [showVncViewer, setShowVncViewer] = useState(false);
+  const [showAgentSandbox, setShowAgentSandbox] = useState(false);
+  const [showLivePreview, setShowLivePreview] = useState(false);
   
   const [concurrencyCount, setConcurrencyCount] = useState(0);
   const [activityLog, setActivityLog] = useState<string[]>([]);
@@ -298,6 +315,13 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
       const execMsgId = `exec-${task.id}-${Date.now()}`;
       const userMsg: Message = { id: execMsgId, role: 'user', text: `Execute Task: ${task.title}`, timestamp: Date.now() };
       
+      // Capture task execution in telemetry
+      telemetryService.capture({
+          type: 'action',
+          content: `Executing Task: ${task.title}`,
+          metadata: { taskId: task.id, assignedAgent: task.assignedAgent }
+      });
+
       dispatchMessages(prev => [...prev, userMsg]);
 
       // 2. Prepare Context (History)
@@ -362,6 +386,13 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
           
           dispatchMessages(prev => [...prev, completionMsg]);
           
+          // Capture task completion in telemetry
+          telemetryService.capture({
+              type: 'action',
+              content: `Task Completed: ${task.title}`,
+              metadata: { taskId: task.id, assignedAgent: targetAgent, responseLength: responseText.length }
+          });
+
           // Learn from success
           await memoryService.addMemory(`Task completed: ${task.title}. Output: ${responseText.substring(0, 100)}...`, 'interaction', ['task_success', targetAgent]);
 
@@ -411,6 +442,14 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
     const userMsg: Message = { id: Date.now().toString(), role: 'user', text: textToSend, inputAsset: inputAsset, timestamp: Date.now() };
     const updatedMessages = [...messages, userMsg];
     dispatchMessages(updatedMessages);
+    
+    // Capture user input in telemetry
+    telemetryService.capture({
+        type: 'action',
+        content: `User Input: ${textToSend}`,
+        metadata: { agent, assetType }
+    });
+
     setInput('');
     setShowCommandPalette(false);
     setIsChatGenerating(true);
@@ -492,6 +531,28 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                setLatestAudio(audioData);
            }
            break;
+        case AgentType.AI_EMPLOYEE:
+           const aiEmpRes = await runAiEmployeeAgent(userMsg.text || '', history);
+           
+           // Try to parse emotion from the end of the response
+           let emotion = 'professional';
+           let cleanText = aiEmpRes;
+           try {
+             const jsonMatch = aiEmpRes.match(/```json\n([\s\S]*?)\n```$/);
+             if (jsonMatch) {
+               const parsed = JSON.parse(jsonMatch[1]);
+               if (parsed.emotion) {
+                 emotion = parsed.emotion;
+                 cleanText = aiEmpRes.replace(/```json\n[\s\S]*?\n```$/, '').trim();
+               }
+             }
+           } catch (e) {
+             console.error("Failed to parse emotion", e);
+           }
+           
+           responseText = cleanText;
+           metadata = { emotion };
+           break;
       }
 
       // Parse Security Alert
@@ -542,7 +603,7 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
     }
   };
 
-  const activePanel = showNeuralCore ? 'core' : showVncViewer ? 'vnc' : (showCanvas && activeArtifact) ? 'canvas' : null;
+  const activePanel = showNeuralCore ? 'core' : showAgentSandbox ? 'sandbox' : showVncViewer ? 'vnc' : showLivePreview ? 'live-preview' : (showCanvas && activeArtifact) ? 'canvas' : null;
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-zinc-50 dark:bg-[#050505] transition-colors duration-300">
@@ -569,17 +630,17 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
               {/* 1. HEADER (Floating) */}
               <div className="absolute top-0 left-0 right-0 z-30 p-2 sm:p-4 pt-[max(0.5rem,env(safe-area-inset-top))] flex justify-between items-start pointer-events-none">
                   {/* Badge */}
-                  <div className="pointer-events-auto bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-zinc-200 dark:border-white/10 px-3 py-2 sm:px-4 rounded-full shadow-lg flex items-center gap-3 animate-in slide-in-from-top-4 duration-700">
+                  <div className="pointer-events-auto glass-panel px-3 py-2 sm:px-4 rounded-full flex items-center gap-3 animate-in slide-in-from-top-4 duration-700 glow-border">
                       <div className={`w-2 h-2 rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)] ${isBusy ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></div>
-                      <span className="text-[10px] sm:text-xs font-bold text-zinc-800 dark:text-zinc-100 brand-font tracking-[0.15em] uppercase">{agent}</span>
+                      <span className="text-[9px] sm:text-xs font-bold text-zinc-800 dark:text-zinc-100 brand-font tracking-[0.1em] sm:tracking-[0.15em] uppercase truncate max-w-[80px] sm:max-w-none">{agent}</span>
                       <div className="h-3 w-px bg-zinc-300 dark:bg-white/10 hidden sm:block"></div>
-                      <span className="text-[9px] font-mono text-zinc-500 hidden sm:block">v3.2</span>
+                      <span className="telemetry-text hidden sm:block">v3.2</span>
                   </div>
 
                   {/* Activity Feed (New) */}
                   <div className="hidden lg:flex pointer-events-auto flex-col gap-1 ml-4 animate-in fade-in duration-1000 delay-300">
                       {activityLog.map((log, i) => (
-                          <div key={i} className="flex items-center gap-2 text-[9px] font-mono text-zinc-400 dark:text-zinc-500 bg-white/40 dark:bg-black/20 backdrop-blur-sm px-2 py-0.5 rounded border border-zinc-200/50 dark:border-white/5 animate-in slide-in-from-left-2" style={{ opacity: 1 - (i * 0.2) }}>
+                          <div key={i} className="flex items-center gap-2 telemetry-text bg-white/40 dark:bg-black/20 backdrop-blur-sm px-2 py-0.5 rounded border border-zinc-200/50 dark:border-white/5 animate-in slide-in-from-left-2" style={{ opacity: 1 - (i * 0.2) }}>
                               <div className="w-1 h-1 rounded-full bg-amber-500 animate-pulse"></div>
                               {log}
                           </div>
@@ -589,13 +650,13 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                   {/* Toolbar */}
                   <div className="pointer-events-auto flex items-center gap-2 animate-in slide-in-from-top-4 duration-1000 delay-100">
                       {concurrencyCount > 0 && (
-                          <div className="px-3 py-1.5 bg-cyan-100/50 dark:bg-cyan-950/40 border border-cyan-500/20 rounded-full flex items-center gap-2 text-cyan-600 dark:text-cyan-400 backdrop-blur-md mr-2">
+                          <div className="px-3 py-1.5 bg-cyan-100/50 dark:bg-cyan-950/40 border border-cyan-500/20 rounded-full flex items-center gap-2 text-cyan-600 dark:text-cyan-400 backdrop-blur-md mr-2 shadow-sm">
                               <Layers size={10} className="animate-spin-slow" />
                               <span className="text-[9px] font-bold tracking-widest">{concurrencyCount}</span>
                           </div>
                       )}
                       
-                      <div className="bg-white/80 dark:bg-black/60 backdrop-blur-xl border border-zinc-200 dark:border-white/10 p-1 rounded-full flex items-center shadow-lg transition-colors">
+                      <div className="glass-panel p-1 rounded-full flex items-center shadow-lg transition-colors glow-border">
                           {agent === AgentType.OVERSEER && (
                               <>
                                   <button onClick={() => setUseThinking(!useThinking)} className={`p-2 rounded-full transition-all ${useThinking ? 'bg-zinc-200 dark:bg-zinc-100 text-zinc-900' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title="Deep Reasoning"><BrainCircuit size={14}/></button>
@@ -604,21 +665,32 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                               </>
                           )}
                           
-                          <button onClick={() => { setShowNeuralCore(!showNeuralCore); if(!showNeuralCore) { setShowCanvas(false); setShowVncViewer(false); } }} className={`p-2 rounded-full transition-all flex items-center gap-1.5 ${showNeuralCore ? 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-500/10 px-3' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title="Neural Core">
+                           <button onClick={() => { setShowAgentSandbox(!showAgentSandbox); if(!showAgentSandbox) { setShowCanvas(false); setShowVncViewer(false); setShowNeuralCore(false); } }} className={`p-2 rounded-full transition-all flex items-center gap-1.5 ${showAgentSandbox ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-500/10 px-3' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title="Agent Sandbox">
+                             <Bot size={14}/>
+                             {showAgentSandbox && <span className="text-[10px] font-medium uppercase tracking-wider hidden xs:inline">Sandbox</span>}
+                           </button>
+
+                           <button onClick={() => { setShowNeuralCore(!showNeuralCore); if(!showNeuralCore) { setShowCanvas(false); setShowVncViewer(false); } }} className={`p-1.5 sm:p-2 rounded-full transition-all flex items-center gap-1.5 ${showNeuralCore ? 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-500/10 px-2 sm:px-3' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title="Neural Core">
                             <Cpu size={14}/>
-                            {showNeuralCore && <span className="text-[10px] font-medium uppercase tracking-wider">Core</span>}
+                            {showNeuralCore && <span className="text-[10px] font-medium uppercase tracking-wider hidden xs:inline">Core</span>}
                           </button>
                           
-                          <button onClick={() => { setShowVncViewer(!showVncViewer); if(!showVncViewer) { setShowCanvas(false); setShowNeuralCore(false); } }} className={`p-2 rounded-full transition-all flex items-center gap-1.5 ${showVncViewer ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/10 px-3' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title="Workspace (VNC)">
+                          <button onClick={() => { setShowVncViewer(!showVncViewer); if(!showVncViewer) { setShowCanvas(false); setShowNeuralCore(false); } }} className={`p-1.5 sm:p-2 rounded-full transition-all flex items-center gap-1.5 ${showVncViewer ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/10 px-2 sm:px-3' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title="Workspace (VNC)">
                             <Monitor size={14}/>
-                            {showVncViewer && <span className="text-[10px] font-medium uppercase tracking-wider">Workspace</span>}
+                            {showVncViewer && <span className="text-[10px] font-medium uppercase tracking-wider hidden xs:inline">Workspace</span>}
                           </button>
 
                           {(agent === AgentType.DEVELOPER || activeArtifact) && (
-                              <button onClick={() => { setShowCanvas(!showCanvas); if(!showCanvas) { setShowNeuralCore(false); setShowVncViewer(false); } }} className={`p-2 rounded-full transition-all flex items-center gap-1.5 ${showCanvas ? 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/10 px-3' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title="Canvas">
-                                <MonitorPlay size={14}/>
-                                {showCanvas && <span className="text-[10px] font-medium uppercase tracking-wider">Canvas</span>}
-                              </button>
+                              <>
+                                <button onClick={() => { setShowCanvas(!showCanvas); if(!showCanvas) { setShowNeuralCore(false); setShowVncViewer(false); setShowLivePreview(false); } }} className={`p-1.5 sm:p-2 rounded-full transition-all flex items-center gap-1.5 ${showCanvas ? 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/10 px-2 sm:px-3' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title="Canvas">
+                                  <MonitorPlay size={14}/>
+                                  {showCanvas && <span className="text-[10px] font-medium uppercase tracking-wider hidden xs:inline">Canvas</span>}
+                                </button>
+                                <button onClick={() => { setShowLivePreview(!showLivePreview); if(!showLivePreview) { setShowCanvas(false); setShowNeuralCore(false); setShowVncViewer(false); } }} className={`p-1.5 sm:p-2 rounded-full transition-all flex items-center gap-1.5 ${showLivePreview ? 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-500/10 px-2 sm:px-3' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title="Live Preview">
+                                  <Terminal size={14}/>
+                                  {showLivePreview && <span className="text-[10px] font-medium uppercase tracking-wider hidden xs:inline">Live Preview</span>}
+                                </button>
+                              </>
                           )}
                           
                           <div className="w-px h-4 bg-zinc-300 dark:bg-white/10 mx-1"></div>
@@ -653,7 +725,7 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                                      </p>
 
                                      {/* Responsive Grid for Starters */}
-                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-4xl px-2 sm:px-4">
+                                     <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 w-full max-w-4xl px-2 sm:px-4">
                                         {(STARTER_PROMPTS[agent] || GENERIC_STARTERS).map((starter, idx) => {
                                             const Icon = starter.icon;
                                             return (
@@ -717,7 +789,7 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                                        <select 
                                           value={videoConfig.modelId} 
                                           onChange={(e) => setVideoConfig({...videoConfig, modelId: e.target.value})}
-                                          className="w-full sm:w-auto appearance-none bg-transparent pl-3 pr-8 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 outline-none cursor-pointer hover:text-amber-600 dark:hover:text-amber-500 transition-colors truncate"
+                                          className="w-full sm:w-auto appearance-none bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/5 rounded-lg pl-3 pr-8 py-1.5 telemetry-text font-bold text-zinc-700 dark:text-zinc-200 outline-none cursor-pointer hover:bg-zinc-200 dark:hover:bg-white/10 transition-all truncate"
                                        >
                                           {VIDEO_MODELS.map(m => (
                                              <option key={m.id} value={m.id} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200">
@@ -733,12 +805,12 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                                    <div className="w-px h-4 bg-zinc-300 dark:bg-white/10 mx-2 hidden sm:block"></div>
 
                                    {/* Aspect Ratio */}
-                                   <div className="flex bg-zinc-100 dark:bg-white/5 rounded-lg p-0.5 justify-center">
+                                   <div className="flex bg-zinc-100 dark:bg-white/5 rounded-lg p-0.5 justify-center border border-zinc-200 dark:border-white/5">
                                       {['16:9', '9:16'].map(ratio => (
                                           <button
                                             key={ratio}
                                             onClick={() => setVideoConfig({...videoConfig, aspectRatio: ratio as any})}
-                                            className={`flex-1 sm:flex-none px-2 py-1 rounded-md text-[9px] font-bold transition-all ${videoConfig.aspectRatio === ratio ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
+                                            className={`flex-1 sm:flex-none px-3 py-1 rounded-md telemetry-text font-bold transition-all ${videoConfig.aspectRatio === ratio ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
                                           >
                                             {ratio}
                                           </button>
@@ -748,12 +820,12 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                                    <div className="w-px h-4 bg-zinc-300 dark:bg-white/10 mx-2 hidden sm:block"></div>
 
                                    {/* Resolution */}
-                                   <div className="flex bg-zinc-100 dark:bg-white/5 rounded-lg p-0.5 justify-center">
+                                   <div className="flex bg-zinc-100 dark:bg-white/5 rounded-lg p-0.5 justify-center border border-zinc-200 dark:border-white/5">
                                       {['720p', '1080p'].map(res => (
                                           <button
                                             key={res}
                                             onClick={() => setVideoConfig({...videoConfig, resolution: res as any})}
-                                            className={`flex-1 sm:flex-none px-2 py-1 rounded-md text-[9px] font-bold transition-all ${videoConfig.resolution === res ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
+                                            className={`flex-1 sm:flex-none px-3 py-1 rounded-md telemetry-text font-bold transition-all ${videoConfig.resolution === res ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
                                           >
                                             {res}
                                           </button>
@@ -782,7 +854,7 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                              <input 
                                 type="text" 
                                 value={input} 
-                                onChange={(e) => setInput(e.target.value)} 
+                                onChange={handleInputChange} 
                                 onKeyDown={(e) => e.key === 'Enter' && handleSend()} 
                                 placeholder={isListening ? "Listening..." : isTranscribing ? "Transcribing..." : (attachedAsset ? "Asset attached. Add context..." : "Enter system directive...")}
                                 className="flex-1 bg-transparent border-none text-[16px] sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none px-2 font-light tracking-wide font-mono min-w-0"
@@ -849,12 +921,14 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                /* Tablet+: Static Grid Item */
                md:static md:z-auto md:inset-auto md:h-full
                
-               border-l border-white/5 bg-white/95 dark:bg-black/95 md:bg-white/40 md:dark:bg-black/40 backdrop-blur-xl 
+               border-l border-zinc-200 dark:border-white/5 bg-white/95 dark:bg-black/95 md:bg-white/40 md:dark:bg-black/40 backdrop-blur-xl 
                flex flex-col shadow-2xl md:shadow-none
-               animate-in slide-in-from-right duration-300
+               animate-in slide-in-from-right duration-500 ease-luxor-depth
             `}>
                {activePanel === 'core' && <NeuralCore onClose={() => setShowNeuralCore(false)} />}
+               {activePanel === 'sandbox' && <AgentSandbox />}
                {activePanel === 'canvas' && activeArtifact && <CanvasPanel artifact={activeArtifact} onClose={() => setShowCanvas(false)} />}
+               {activePanel === 'live-preview' && <LivePreview code={activeArtifact?.code || ''} onClose={() => setShowLivePreview(false)} />}
             </div>
           )}
           
@@ -865,9 +939,9 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
              /* Tablet+: Static Grid Item */
              md:static md:z-auto md:inset-auto md:h-full
              
-             border-l border-white/5 bg-white/95 dark:bg-black/95 md:bg-white/40 md:dark:bg-black/40 backdrop-blur-xl 
+             border-l border-zinc-200 dark:border-white/5 bg-white/95 dark:bg-black/95 md:bg-white/40 md:dark:bg-black/40 backdrop-blur-xl 
              flex flex-col shadow-2xl md:shadow-none
-             transition-all duration-300
+             transition-all duration-500 ease-luxor-depth
              ${activePanel === 'vnc' ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full pointer-events-none hidden'}
           `}>
              <VncViewer onClose={() => setShowVncViewer(false)} />

@@ -85,10 +85,10 @@ const AgentItem: React.FC<{
                         : 'hover:bg-white/60 dark:hover:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                     }
                 `}
-                style={{ marginLeft: `${level * 12}px` }}
+                style={{ marginLeft: `${level * 16}px` }}
             >
                 {isActive && (
-                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-amber-500"></div>
+                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-amber-500 rounded-full"></div>
                 )}
                 
                 <div className={`p-1.5 rounded transition-colors relative z-10 ${isActive ? 'text-amber-600 dark:text-amber-500' : 'text-current opacity-70 group-hover/btn:opacity-100'}`}>
@@ -99,41 +99,42 @@ const AgentItem: React.FC<{
                     <span className={`text-xs font-bold tracking-wide transition-colors ${isActive ? 'text-zinc-900 dark:text-white' : 'text-zinc-600 dark:text-zinc-400'}`}>{agent.name}</span>
                 </div>
 
-                {agent.subGroups && (
+                {agent.subGroups && agent.subGroups.length > 0 && (
                     <div 
                         onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-                        className="p-1 hover:bg-zinc-200 dark:hover:bg-white/10 rounded transition-colors"
+                        className="p-1 hover:bg-zinc-200 dark:hover:bg-white/10 rounded transition-colors ml-auto"
                     >
-                        <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'}`} />
+                        <ChevronDown size={14} className={`transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'}`} />
                     </div>
                 )}
             </button>
 
             {agent.subGroups && isExpanded && (
-                <div className="flex flex-col mt-2 gap-2 relative">
+                <div className="flex flex-col mt-1 gap-1 relative">
                     {/* Hierarchy Line */}
                     <div 
-                        className="absolute left-0 top-0 bottom-4 w-px bg-zinc-200 dark:bg-white/10"
-                        style={{ marginLeft: `${(level * 12) + 16}px` }}
+                        className="absolute top-0 bottom-2 w-px bg-zinc-200 dark:bg-white/10"
+                        style={{ left: `${(level * 16) + 20}px` }}
                     ></div>
 
                     {agent.subGroups.map((group, gIdx) => (
-                        <div 
-                            key={gIdx} 
-                            className="flex flex-col py-1.5 relative rounded-lg bg-zinc-200/50 dark:bg-white/[0.03] border border-zinc-300/50 dark:border-white/[0.05] mr-2"
-                            style={{ marginLeft: `${(level * 12) + 24}px` }}
-                        >
-                            <div className="px-3 py-1 text-[9px] font-bold text-zinc-500 dark:text-zinc-400 tracking-[0.15em] font-mono flex items-center gap-2 mb-1 uppercase">
-                                {group.label}
-                            </div>
-                            <div className="flex flex-col gap-0.5 pr-1">
+                        <div key={gIdx} className="flex flex-col gap-0.5 mt-1">
+                            {group.label && (
+                                <div 
+                                    className="py-1 text-[9px] font-bold text-zinc-400 dark:text-zinc-500 tracking-[0.15em] font-mono flex items-center gap-2 uppercase"
+                                    style={{ paddingLeft: `${((level + 1) * 16) + 8}px` }}
+                                >
+                                    {group.label}
+                                </div>
+                            )}
+                            <div className="flex flex-col gap-0.5">
                                 {group.agents.map(subAgent => (
                                     <AgentItem 
                                         key={subAgent.id} 
                                         agent={subAgent} 
                                         activeAgent={activeAgent} 
                                         onSelect={onSelect} 
-                                        level={0}
+                                        level={level + 1}
                                     />
                                 ))}
                             </div>

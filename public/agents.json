@@ -25,6 +25,12 @@
         ]
     },
     {
+        "label": "ENTERPRISE",
+        "agents": [
+            { "id": "AI_EMPLOYEE", "name": "AI Employee", "description": "Emotional Intelligence", "icon": "Users" }
+        ]
+    },
+    {
         "label": "CREATIVE",
         "agents": [
             { "id": "VISIONARY", "name": "Visionary", "description": "Visual Synthesis", "icon": "Eye" },

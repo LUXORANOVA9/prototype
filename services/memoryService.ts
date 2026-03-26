@@ -149,6 +149,13 @@ class MemoryService {
         .slice(0, limit);
   }
 
+  public getRecentSystemEvents(limit = 5): MemoryNode[] {
+      return this.memories
+        .filter(m => m.type === 'system')
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, limit);
+  }
+
   public deleteMemory(id: string) {
       this.memories = this.memories.filter(m => m.id !== id);
       this.saveMemories();

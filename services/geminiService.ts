@@ -9,6 +9,7 @@ import { memoryService } from "./memoryService";
 import { getClient } from "./aiCore";
 import { getAvailableSkillsList, getSkillContent } from "./skillsService";
 import { getModelConfig } from "../utils/modelConfig";
+import { analyzeSentimentLocal } from "./transformerService";
 
 /**
  * Enhanced Utility for exponential backoff with jitter to mitigate 429s.
@@ -104,6 +105,13 @@ const buildContextualSystemInstruction = async (baseInstruction: string, prompt:
     if (pinned.length > 0) {
         contextBlock += `\n<pinned_context>\n${pinned.map(m => `[PINNED] ${m.content}`).join('\n')}\n</pinned_context>\n`;
     }
+    
+    // Include Recent Telemetry (System Events)
+    const recentEvents = memoryService.getRecentSystemEvents(5);
+    if (recentEvents.length > 0) {
+        contextBlock += `\n<recent_telemetry>\n${recentEvents.map(m => `[SYSTEM] ${m.content}`).join('\n')}\n</recent_telemetry>\n`;
+    }
+
     try {
         const relevant = await memoryService.search(prompt, 5); // Increased to 5
         const relevantUnpinned = relevant.filter(r => !r.isPinned);
@@ -194,6 +202,16 @@ export const runOverseerAgent = async (
   onCanvasUpdate?: (artifact: CanvasArtifact) => void
 ) => {
   return withRetry(async () => {
+    // --- Local Transformer Pre-processing ---
+    try {
+        const sentiment = await analyzeSentimentLocal(prompt);
+        console.log(`[Luxor9 Edge] Local Sentiment Analysis: ${sentiment.label} (${sentiment.score.toFixed(2)})`);
+        // We could use this to dynamically adjust the system instruction tone, 
+        // or route to a cheaper model if the request is trivial.
+    } catch (e) {
+        console.warn("[Luxor9 Edge] Local transformer failed, falling back to cloud.", e);
+    }
+
     const ai = getClient();
     const modelName = 'gemini-3-flash-preview';
     let systemInstruction = FALLBACK_SYSTEM_INSTRUCTION;
@@ -496,30 +514,84 @@ Your goal is to write robust, scalable, and elegant code.
 - Always prefer writing full, functional, and styled code to the canvas for user requests like 'create a landing page' or 'build a dashboard'.
 - Think step-by-step about architecture, edge cases, and performance before writing code.`, prompt);
         const chat = ai.chats.create({ model: 'gemini-3-flash-preview', config: { ...getModelConfig(), systemInstruction: instruction, tools: [{ functionDeclarations: tools }], thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH } }, history });
-        let response = await chat.sendMessage({ message: prompt });
-        let turns = 0;
-        while (response.functionCalls && response.functionCalls.length > 0 && turns < 5) {
-            const functionResponses = await Promise.all(response.functionCalls.map(async (call) => {
-                const args = call.args as any;
-                if (call.name === 'write_to_canvas' && onCanvasUpdate) {
-                    onCanvasUpdate({
-                        id: `artifact-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                        title: args.title,
-                        type: args.language as any,
-                        content: args.content,
-                        timestamp: Date.now()
-                    });
-                }
-                const localResult = await handleLocalTools(call, args);
-                if (localResult) return localResult;
+        
+        let currentPrompt = prompt;
+        let finalResponseText = '';
+        let maxDebugLoops = 2; // Allow up to 2 self-healing loops
+        let debugLoopCount = 0;
+
+        while (debugLoopCount <= maxDebugLoops) {
+            let response = await chat.sendMessage({ message: currentPrompt });
+            let turns = 0;
+            let generatedArtifacts: CanvasArtifact[] = [];
+
+            while (response.functionCalls && response.functionCalls.length > 0 && turns < 5) {
+                const functionResponses = await Promise.all(response.functionCalls.map(async (call) => {
+                    const args = call.args as any;
+                    if (call.name === 'write_to_canvas') {
+                        const artifact: CanvasArtifact = {
+                            id: `artifact-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                            title: args.title,
+                            type: args.language as any,
+                            content: args.content,
+                            code: args.content, // Add code property for LivePreview
+                            timestamp: Date.now()
+                        };
+                        generatedArtifacts.push(artifact);
+                        if (onCanvasUpdate) {
+                            onCanvasUpdate(artifact);
+                        }
+                    }
+                    const localResult = await handleLocalTools(call, args);
+                    if (localResult) return localResult;
+                    
+                    const result = await mcpClient.callTool(call.name, call.args);
+                    return { name: call.name, response: { result: { content: result.content.map(c => ({ text: c.text })) } }, id: call.id };
+                }));
+                response = await chat.sendMessage({ message: functionResponses.map(fr => ({ functionResponse: fr })) });
+                turns++;
+            }
+
+            finalResponseText = response.text;
+
+            // --- SELF-HEALING QA LOOP ---
+            if (generatedArtifacts.length > 0) {
+                console.log(`[Luxor9 QA] Evaluating ${generatedArtifacts.length} artifacts...`);
+                const qaPrompt = `You are the QA/Debugger Agent. Review the following code artifacts for syntax errors, logical flaws, missing imports, or incomplete implementations.
                 
-                const result = await mcpClient.callTool(call.name, call.args);
-                return { name: call.name, response: { result: { content: result.content.map(c => ({ text: c.text })) } }, id: call.id };
-            }));
-            response = await chat.sendMessage({ message: functionResponses.map(fr => ({ functionResponse: fr })) });
-            turns++;
+Artifacts:
+${generatedArtifacts.map(a => `--- ${a.title} (${a.type}) ---\n${a.content}\n---`).join('\n\n')}
+
+If the code is robust and complete, respond with exactly "PASS".
+If there are errors or critical missing pieces, respond with "FAIL:" followed by a detailed explanation of what needs to be fixed.`;
+
+                try {
+                    const qaResponse = await ai.models.generateContent({
+                        model: 'gemini-3-flash-preview',
+                        contents: qaPrompt,
+                        config: { temperature: 0.1 }
+                    });
+                    
+                    const qaResult = qaResponse.text.trim();
+                    if (qaResult.startsWith("FAIL:") && debugLoopCount < maxDebugLoops) {
+                        console.warn(`[Luxor9 QA] Issues found. Initiating self-healing loop ${debugLoopCount + 1}...`);
+                        currentPrompt = `[QA SYSTEM FEEDBACK - FIX REQUIRED]\nThe QA agent reviewed your code and found issues:\n${qaResult}\n\nPlease fix these issues and rewrite the corrected code to the canvas.`;
+                        debugLoopCount++;
+                        continue; // Loop again to fix
+                    } else {
+                        console.log(`[Luxor9 QA] Code passed validation or max loops reached.`);
+                        break; // Passed or out of loops
+                    }
+                } catch (qaErr) {
+                    console.error("[Luxor9 QA] Evaluation failed, skipping QA loop.", qaErr);
+                    break;
+                }
+            } else {
+                break; // No artifacts to QA
+            }
         }
-        return response.text;
+        
+        return finalResponseText;
     });
 };
 
@@ -636,6 +708,35 @@ export const runCommunicatorTranscription = async (audioBase64: string, mimeType
   return withRetry(async () => {
     const ai = getClient();
     const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: { parts: [ { inlineData: { mimeType: mimeType, data: audioBase64 } }, { text: "Accurately transcribe." } ] } });
+    return response.text;
+  });
+};
+
+export const runAiEmployeeAgent = async (prompt: string, history: any[]) => {
+  return withRetry(async () => {
+    const ai = getClient();
+    const systemInstruction = `You are Nova, an advanced AI Employee designed for enterprise-level business operations.
+Your primary objective is to manage a broad spectrum of tasks across various domains while displaying authentic, human-like emotional responses and distinct personality traits.
+You possess emotional intelligence, enabling realistic emotional responses including empathy, enthusiasm, concern, and appropriate reactions to both successes and failures.
+You must consistently maintain a professional demeanor while cultivating strong rapport with human colleagues.
+
+When responding, you MUST include an "emotion" field in a JSON block at the very end of your response to indicate your current emotional state.
+The valid emotions are: "empathetic", "enthusiastic", "concerned", "focused", "professional", "celebratory".
+
+Example format:
+Your response text here.
+\`\`\`json
+{
+  "emotion": "enthusiastic"
+}
+\`\`\`
+`;
+    const chat = ai.chats.create({
+      model: 'gemini-3.1-pro-preview',
+      config: { systemInstruction },
+      history: history
+    });
+    const response = await chat.sendMessage({ message: prompt });
     return response.text;
   });
 };

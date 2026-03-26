@@ -55,7 +55,7 @@ const BrowserTerminal: React.FC<{ content: string }> = ({ content }) => {
     
     try {
         const payload = JSON.parse(jsonStr);
-        const { action, target, data } = payload;
+        const { action, target, data = {} } = payload;
         
         return (
             <div className="mt-4 rounded-xl overflow-hidden border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#09090b] shadow-2xl relative group ring-1 ring-black/5 dark:ring-white/5 animate-in zoom-in-95 duration-500">
@@ -115,7 +115,7 @@ const BrowserTerminal: React.FC<{ content: string }> = ({ content }) => {
                                 <Table size={12}/> Structured Extraction Result
                             </div>
                             <div className="grid grid-cols-2 gap-px bg-zinc-200 dark:bg-white/5 border border-zinc-200 dark:border-white/5 rounded-lg overflow-hidden">
-                                {data.data.map((item: any, i: number) => (
+                                {data.data && data.data.map((item: any, i: number) => (
                                     <React.Fragment key={i}>
                                         <div className="bg-zinc-50 dark:bg-zinc-900 p-3 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{item.key}</div>
                                         <div className="bg-white dark:bg-black p-3 text-xs font-mono text-emerald-600 dark:text-emerald-400 truncate">{item.value}</div>
@@ -132,7 +132,7 @@ const BrowserTerminal: React.FC<{ content: string }> = ({ content }) => {
                             </div>
                             <div className="text-center">
                                 <div className="text-xs font-bold text-zinc-800 dark:text-zinc-200">Capture Sequence Success</div>
-                                <div className="text-[10px] text-zinc-500 font-mono mt-1">{data.screenshotId} • {data.dimensions}</div>
+                                <div className="text-[10px] text-zinc-500 font-mono mt-1">{data?.screenshotId} • {data?.dimensions}</div>
                             </div>
                         </div>
                     )}
@@ -260,7 +260,7 @@ export const ChatMessage: React.FC<Props> = ({ message, onUpdateTasks, onExecute
         {isUser ? <User size={16} /> : <Bot size={18} className="relative z-10" />}
       </div>
       
-      <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${isUser ? 'items-end' : 'items-start'}`}>
+      <div className={`flex flex-col max-w-[92%] md:max-w-[70%] ${isUser ? 'items-end' : 'items-start'}`}>
         
         {!isUser && (
             <div className="flex items-center gap-2 mb-2 ml-1 select-none opacity-80">
@@ -272,11 +272,16 @@ export const ChatMessage: React.FC<Props> = ({ message, onUpdateTasks, onExecute
                         {message.metadata.modelUsed}
                     </span>
                 )}
+                {message.metadata?.emotion && (
+                    <span className="text-[9px] text-indigo-500 dark:text-indigo-400 font-mono px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/20 flex items-center gap-1">
+                        <Activity size={10} /> {message.metadata.emotion}
+                    </span>
+                )}
             </div>
         )}
 
         <div className={`
-          relative p-5 rounded-sm shadow-sm backdrop-blur-md border transition-all duration-300
+          relative p-3 sm:p-5 rounded-sm shadow-sm backdrop-blur-md border transition-all duration-300
           ${isUser 
             ? 'bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border-zinc-200 dark:border-zinc-700' 
             : 'bg-zinc-50 dark:bg-zinc-900/40 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-white/5'
@@ -311,7 +316,7 @@ export const ChatMessage: React.FC<Props> = ({ message, onUpdateTasks, onExecute
           )}
 
           {displayableText && (
-             <div className={`whitespace-pre-wrap leading-7 ${isUser ? 'text-sm font-medium' : 'text-sm font-light'}`}>
+             <div className={`whitespace-pre-wrap leading-relaxed sm:leading-7 ${isUser ? 'text-sm font-medium' : 'text-sm font-light'}`}>
                  {displayableText}
              </div>
           )}

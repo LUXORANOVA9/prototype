@@ -6,6 +6,8 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-brand: "Orbitron", sans-serif;
 
+  --breakpoint-xs: 480px;
+
   /* --- LUXOR9 MOTION SYSTEM --- */
   
   /* Duration Scale */
@@ -27,6 +29,7 @@
   --animate-luxor-slide-up: luxor-slide-up var(--duration-base) var(--ease-luxor-entrance) forwards;
   --animate-luxor-scale-in: luxor-scale-in var(--duration-base) var(--ease-luxor-depth) forwards;
   --animate-luxor-pulse: luxor-pulse 3s ease-in-out infinite;
+  --animate-pulse-slow: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 
   @keyframes luxor-fade-in {
     from { opacity: 0; }
@@ -71,6 +74,27 @@ html:not(.dark) body {
 .motion-luxor-default { transition: all var(--duration-base) var(--ease-luxor-default); }
 .motion-luxor-fast { transition: all var(--duration-fast) var(--ease-luxor-default); }
 .motion-luxor-slow { transition: all var(--duration-slow) var(--ease-luxor-default); }
+
+/* LUXOR9 UI SYSTEM */
+.glass-panel {
+  @apply bg-white/80 dark:bg-black/60 backdrop-blur-2xl border border-zinc-200 dark:border-white/10 shadow-2xl;
+}
+
+.hardware-button {
+  @apply bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-lg p-1.5 transition-all hover:bg-zinc-200 dark:hover:bg-white/10 active:scale-95;
+}
+
+.telemetry-text {
+  @apply font-mono text-[9px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500;
+}
+
+.glow-border {
+  @apply ring-1 ring-zinc-200 dark:ring-white/10 shadow-[0_0_15px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(255,255,255,0.05)];
+}
+
+.brand-font {
+  font-family: var(--font-brand);
+}
 
 /* Stagger Delays */
 .delay-0 { transition-delay: 0ms; }

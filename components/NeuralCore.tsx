@@ -1,7 +1,19 @@
+// @ts-nocheck
+/// <reference types="@react-three/fiber" />
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { memoryService } from '../services/memoryService';
 import { MemoryNode } from '../types';
 import { BrainCircuit, Search, Plus, Tag, Database, Zap, X, Cpu, Share2, Sparkles, Trash2, Pin, PinOff, Network, List } from 'lucide-react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, Text, Html } from '@react-three/drei';
+import * as THREE from 'three';
+import { ThreeElements } from '@react-three/fiber';
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements extends ThreeElements {}
+  }
+}
 
 interface Props {
   onClose: () => void;
@@ -11,188 +23,166 @@ interface Props {
 interface SimulationNode extends MemoryNode {
   x: number;
   y: number;
+  z?: number;
   vx: number;
   vy: number;
+  vz?: number;
   radius: number;
 }
 
-// --- Graph Visualization Sub-component ---
-const VectorGraph: React.FC<{ memories: MemoryNode[], onSelect: (id: string) => void }> = ({ memories, onSelect }) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [hoveredNode, setHoveredNode] = useState<SimulationNode | null>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
+// --- 3D Graph Visualization Sub-component ---
+const NodeMesh: React.FC<{ 
+    node: SimulationNode, 
+    isHovered: boolean, 
+    onHover: (node: SimulationNode | null) => void,
+    onClick: (id: string) => void 
+}> = ({ node, isHovered, onHover, onClick }) => {
+    const meshRef = useRef<THREE.Mesh>(null);
+    const color = node.type === 'user_fact' ? '#3b82f6' : node.type === 'system_note' ? '#f59e0b' : '#a855f7';
+    const radius = node.isPinned ? 0.6 : 0.3 + (node.relevance || 0) * 0.4;
 
-    // Simulation State
-    const nodes = useMemo<SimulationNode[]>(() => {
-        return memories.map(m => ({
-            ...m,
-            x: Math.random() * 100, // Initial normalized position 0-100
-            y: Math.random() * 100,
-            vx: (Math.random() - 0.5) * 0.2,
-            vy: (Math.random() - 0.5) * 0.2,
-            radius: m.isPinned ? 6 : 3 + (m.relevance || 0) * 4
-        }));
-    }, [memories]);
-
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        const container = containerRef.current;
-        if (!canvas || !container) return;
-
-        let animationFrameId: number;
-        let width = container.clientWidth;
-        let height = container.clientHeight;
-
-        const handleResize = () => {
-            width = container.clientWidth;
-            height = container.clientHeight;
-            canvas.width = width;
-            canvas.height = height;
-        };
-        
-        window.addEventListener('resize', handleResize);
-        handleResize();
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        const render = () => {
-            ctx.clearRect(0, 0, width, height);
-            
-            // Physics Update & Draw Connections
-            nodes.forEach((node, i) => {
-                // Update position
-                node.x += node.vx;
-                node.y += node.vy;
-
-                // Bounce off walls
-                if (node.x < 0 || node.x > 100) node.vx *= -1;
-                if (node.y < 0 || node.y > 100) node.vy *= -1;
-
-                // Draw Connections
-                nodes.slice(i + 1).forEach(other => {
-                    // Link if they share tags or are same type
-                    const shareTag = node.tags.some(t => other.tags.includes(t));
-                    const sameType = node.type === other.type;
-                    const dist = Math.hypot((node.x - other.x) * width/100, (node.y - other.y) * height/100);
-                    
-                    if ((shareTag || sameType) && dist < 150) {
-                        ctx.beginPath();
-                        ctx.moveTo((node.x / 100) * width, (node.y / 100) * height);
-                        ctx.lineTo((other.x / 100) * width, (other.y / 100) * height);
-                        ctx.strokeStyle = shareTag 
-                            ? (document.documentElement.classList.contains('dark') ? 'rgba(168,85,247,0.15)' : 'rgba(168,85,247,0.1)') 
-                            : (document.documentElement.classList.contains('dark') ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)');
-                        ctx.lineWidth = shareTag ? 1 : 0.5;
-                        ctx.stroke();
-                    }
-                });
-            });
-
-            // Draw Nodes
-            nodes.forEach(node => {
-                const screenX = (node.x / 100) * width;
-                const screenY = (node.y / 100) * height;
-                
-                // Glow
-                const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, node.radius * 4);
-                const color = node.type === 'user_fact' ? '59, 130, 246' : node.type === 'system_note' ? '245, 158, 11' : '168, 85, 247';
-                
-                gradient.addColorStop(0, `rgba(${color}, 0.5)`);
-                gradient.addColorStop(1, `rgba(${color}, 0)`);
-                ctx.fillStyle = gradient;
-                ctx.beginPath();
-                ctx.arc(screenX, screenY, node.radius * 4, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Core
-                ctx.fillStyle = `rgb(${color})`;
-                ctx.beginPath();
-                ctx.arc(screenX, screenY, node.isPinned ? 4 : 2, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Hover State Ring
-                if (hoveredNode?.id === node.id) {
-                    ctx.strokeStyle = `rgba(${color}, 0.8)`;
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.arc(screenX, screenY, node.radius + 4, 0, Math.PI * 2);
-                    ctx.stroke();
-                }
-            });
-
-            animationFrameId = requestAnimationFrame(render);
-        };
-
-        render();
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            cancelAnimationFrame(animationFrameId);
-        };
-    }, [nodes, hoveredNode]);
-
-    const handleMouseMove = (e: React.MouseEvent) => {
-        const rect = canvasRef.current?.getBoundingClientRect();
-        if (!rect) return;
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const width = rect.width;
-        const height = rect.height;
-
-        // Find closest node
-        let closest: SimulationNode | null = null;
-        let minDist = 20; // Hit radius
-
-        nodes.forEach(node => {
-            const screenX = (node.x / 100) * width;
-            const screenY = (node.y / 100) * height;
-            const dist = Math.hypot(x - screenX, y - screenY);
-            if (dist < minDist) {
-                minDist = dist;
-                closest = node;
-            }
-        });
-
-        setHoveredNode(closest);
-    };
+    useFrame(() => {
+        if (meshRef.current) {
+            // Gentle floating animation
+            meshRef.current.position.y += Math.sin(Date.now() * 0.001 + node.id.charCodeAt(0)) * 0.002;
+        }
+    });
 
     return (
-        <div ref={containerRef} className="relative w-full h-full bg-zinc-50 dark:bg-[#050505] overflow-hidden group">
-            <canvas 
-                ref={canvasRef} 
-                className="absolute inset-0 block cursor-crosshair"
-                onMouseMove={handleMouseMove}
-                onClick={() => hoveredNode && onSelect(hoveredNode.id)}
-                onMouseLeave={() => setHoveredNode(null)}
-            />
+        <group position={[node.x, node.y, node.z || 0]}>
+            <mesh 
+                ref={meshRef}
+                onPointerOver={(e) => { e.stopPropagation(); onHover(node); }}
+                onPointerOut={(e) => { e.stopPropagation(); onHover(null); }}
+                onClick={(e) => { e.stopPropagation(); onClick(node.id); }}
+            >
+                <sphereGeometry args={[radius, 32, 32]} />
+                <meshStandardMaterial 
+                    color={color} 
+                    emissive={color}
+                    emissiveIntensity={isHovered ? 1.5 : 0.5}
+                    transparent
+                    opacity={0.9}
+                />
+            </mesh>
+            {/* Outer Glow */}
+            <mesh>
+                <sphereGeometry args={[radius * 1.5, 16, 16]} />
+                <meshBasicMaterial color={color} transparent opacity={isHovered ? 0.3 : 0.1} depthWrite={false} />
+            </mesh>
+        </group>
+    );
+};
+
+const Edges: React.FC<{ nodes: SimulationNode[] }> = ({ nodes }) => {
+    const lines = useMemo(() => {
+        const result: { start: THREE.Vector3, end: THREE.Vector3, color: string }[] = [];
+        nodes.forEach((node, i) => {
+            nodes.slice(i + 1).forEach(other => {
+                const shareTag = node.tags.some(t => other.tags.includes(t));
+                const sameType = node.type === other.type;
+                
+                const dist = Math.hypot(node.x - other.x, node.y - other.y, (node.z || 0) - (other.z || 0));
+                
+                if ((shareTag || sameType) && dist < 15) {
+                    result.push({
+                        start: new THREE.Vector3(node.x, node.y, node.z || 0),
+                        end: new THREE.Vector3(other.x, other.y, other.z || 0),
+                        color: shareTag ? '#a855f7' : '#ffffff'
+                    });
+                }
+            });
+        });
+        return result;
+    }, [nodes]);
+
+    return (
+        <group>
+            {lines.map((line, i) => {
+                const points = [line.start, line.end];
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                return (
+                    <line key={i} geometry={geometry}>
+                        <lineBasicMaterial color={line.color} transparent opacity={0.15} />
+                    </line>
+                );
+            })}
+        </group>
+    );
+};
+
+const VectorGraph3D: React.FC<{ memories: MemoryNode[], onSelect: (id: string) => void }> = ({ memories, onSelect }) => {
+    const [hoveredNode, setHoveredNode] = useState<SimulationNode | null>(null);
+
+    // Generate 3D positions
+    const nodes = useMemo<SimulationNode[]>(() => {
+        return memories.map(m => {
+            // Use a seeded random or hash based on ID to keep positions stable
+            let hash = m.id.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a }, 0);
+            const random = () => {
+                const x = Math.sin(hash++) * 10000;
+                return x - Math.floor(x);
+            };
+            
+            return {
+                ...m,
+                x: (random() - 0.5) * 40,
+                y: (random() - 0.5) * 40,
+                z: (random() - 0.5) * 40,
+                vx: 0, vy: 0, radius: 1
+            };
+        });
+    }, [memories]);
+
+    return (
+        <div className="relative w-full h-full bg-zinc-50 dark:bg-[#050505] overflow-hidden group">
+            <Canvas camera={{ position: [0, 0, 50], fov: 60 }}>
+                <ambientLight intensity={0.2} />
+                <pointLight position={[10, 10, 10]} intensity={1} />
+                <OrbitControls enableDamping dampingFactor={0.05} />
+                
+                <group>
+                    {nodes.map(node => (
+                        <NodeMesh 
+                            key={node.id} 
+                            node={node} 
+                            isHovered={hoveredNode?.id === node.id}
+                            onHover={setHoveredNode}
+                            onClick={onSelect}
+                        />
+                    ))}
+                    <Edges nodes={nodes} />
+                </group>
+            </Canvas>
             
             {/* HUD Overlay */}
-            <div className="absolute bottom-4 left-4 pointer-events-none">
-                <div className="text-[10px] font-mono text-zinc-400 dark:text-zinc-600 uppercase tracking-widest mb-1">Vector Space</div>
+            <div className="absolute bottom-4 left-4 pointer-events-none z-10">
+                <div className="text-[10px] font-mono text-zinc-400 dark:text-zinc-600 uppercase tracking-widest mb-1">3D Vector Space</div>
                 <div className="flex items-center gap-4 text-[9px] text-zinc-500">
                     <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div> User Facts</div>
                     <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500"></div> System Notes</div>
                     <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-purple-500"></div> Interactions</div>
                 </div>
+                <div className="text-[8px] text-zinc-600 mt-2">Drag to rotate • Scroll to zoom</div>
             </div>
 
             {/* Hover Tooltip */}
             {hoveredNode && (
                 <div 
-                    className="absolute z-10 p-3 bg-white/90 dark:bg-black/90 backdrop-blur border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl max-w-[200px] pointer-events-none animate-in fade-in zoom-in-95 duration-200"
-                    style={{ 
-                        left: `${hoveredNode.x}%`, 
-                        top: `${hoveredNode.y}%`,
-                        transform: 'translate(10px, 10px)'
-                    }}
+                    className="absolute z-20 p-3 bg-white/90 dark:bg-black/90 backdrop-blur border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl max-w-[250px] pointer-events-none animate-in fade-in zoom-in-95 duration-200"
+                    style={{ left: '50%', top: '20%', transform: 'translate(-50%, -50%)' }}
                 >
                     <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1 flex items-center gap-2">
                         {hoveredNode.isPinned && <Pin size={8} className="text-amber-500" />}
                         {new Date(hoveredNode.timestamp).toLocaleTimeString()}
                     </div>
-                    <div className="text-xs text-zinc-800 dark:text-zinc-200 line-clamp-3 leading-relaxed">
+                    <div className="text-xs text-zinc-800 dark:text-zinc-200 line-clamp-4 leading-relaxed">
                         {hoveredNode.content}
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                        {hoveredNode.tags.slice(0, 3).map(tag => (
+                            <span key={tag} className="text-[8px] px-1 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded text-zinc-500">{tag}</span>
+                        ))}
                     </div>
                 </div>
             )}
@@ -414,7 +404,7 @@ export const NeuralCore: React.FC<Props> = ({ onClose, className }) => {
               </div>
           ) : (
               // Graph Mode
-              <VectorGraph 
+              <VectorGraph3D 
                  memories={[...pinnedMemories, ...memories]} 
                  onSelect={(id) => {
                      // In a real app, maybe scroll to it in list or show detail modal

@@ -65,6 +65,7 @@ const AGENT_ICONS: Record<AgentType, any> = {
     [AgentType.NAVIGATOR]: MapPin,
     [AgentType.SPEEDSTER]: Zap,
     [AgentType.ANTIGRAVITY]: Server,
+    [AgentType.AI_EMPLOYEE]: Users,
 };
 
 export const TaskBoard: React.FC<Props> = ({ 
@@ -257,8 +258,9 @@ export const TaskBoard: React.FC<Props> = ({
                                         </div>
                                     )}
                                     {task.assignedAgent && (
-                                        <div className="p-1 rounded bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-zinc-400" title={`Assigned to ${task.assignedAgent}`}>
+                                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-zinc-400" title={`Assigned to ${task.assignedAgent}`}>
                                             <AssignedIcon size={10} />
+                                            <span className="text-[8px] font-bold uppercase tracking-tighter">{task.assignedAgent}</span>
                                         </div>
                                     )}
                                     <div className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest border ${status.border} ${status.color} bg-white/50 dark:bg-black/20`}>{status.label}</div>
@@ -267,7 +269,7 @@ export const TaskBoard: React.FC<Props> = ({
                             
                             {/* Subtask Tactical Display */}
                             {subtaskCount > 0 && (
-                                <div className={`mt-3 rounded-lg p-2.5 border transition-colors ${task.completed ? 'bg-emerald-50/50 dark:bg-emerald-950/10 border-emerald-500/10' : 'bg-zinc-100/50 dark:bg-zinc-900/40 border-white/5'}`}>
+                                <div className={`mt-3 rounded-lg p-2.5 border transition-all duration-500 ${task.completed ? 'bg-emerald-50/50 dark:bg-emerald-950/10 border-emerald-500/10' : isExecuting ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-zinc-100/50 dark:bg-zinc-900/40 border-white/5'}`}>
                                     <div className="flex justify-between items-center mb-1.5">
                                         <div className="flex items-center gap-2">
                                             {/* Radial Progress */}
@@ -278,12 +280,17 @@ export const TaskBoard: React.FC<Props> = ({
                                                         strokeDasharray={37.7} strokeDashoffset={37.7 - (37.7 * subtaskPercent) / 100}
                                                         className={`transition-all duration-500 ${task.completed ? 'text-emerald-500' : isExecuting ? 'text-cyan-500' : 'text-amber-500'}`} />
                                                 </svg>
+                                                {isExecuting && (
+                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                        <div className="w-1 h-1 bg-cyan-500 rounded-full animate-ping"></div>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <span className={`text-[9px] font-mono tracking-wide ${task.completed ? 'text-emerald-600 dark:text-emerald-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                                            <span className={`text-[9px] font-mono tracking-wide ${task.completed ? 'text-emerald-600 dark:text-emerald-500' : isExecuting ? 'text-cyan-600 dark:text-cyan-400' : 'text-zinc-500 dark:text-zinc-400'}`}>
                                                 {completedSubtasks}/{subtaskCount} Sub-ops
                                             </span>
                                         </div>
-                                        <span className={`text-[9px] font-bold ${task.completed ? 'text-emerald-600 dark:text-emerald-500' : 'text-zinc-500'}`}>{Math.round(subtaskPercent)}%</span>
+                                        <span className={`text-[9px] font-bold ${task.completed ? 'text-emerald-600 dark:text-emerald-500' : isExecuting ? 'text-cyan-600 dark:text-cyan-400' : 'text-zinc-500'}`}>{Math.round(subtaskPercent)}%</span>
                                     </div>
                                     
                                     {/* Segmented vs Continuous Bar */}

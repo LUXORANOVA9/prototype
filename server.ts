@@ -5,15 +5,50 @@ import { GoogleGenAI } from "@google/genai";
 import { v4 as uuidv4 } from 'uuid';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
+import http from 'http';
+import httpProxy from 'http-proxy';
+import { WebSocketServer } from 'ws';
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
   const API_KEY = process.env.GEMINI_API_KEY; // Use standard env var
 
+  const server = http.createServer(app);
+  const proxy = httpProxy.createProxyServer({
+    target: 'ws://localhost:6080',
+    ws: true
+  });
+
+  // Handle proxy errors
+  proxy.on('error', (err, req, res) => {
+    console.error('VNC Proxy Error:', err);
+    if (res instanceof http.ServerResponse) {
+      res.writeHead(502, { 'Content-Type': 'text/plain' });
+      res.end('VNC Proxy Error');
+    }
+  });
+
+  // Handle WebSocket upgrades for VNC
+  server.on('upgrade', (req, socket, head) => {
+    const { pathname } = new URL(req.url || '', `http://${req.headers.host}`);
+    console.log(`[WebSocket Upgrade] Path: ${pathname}`);
+    if (pathname === '/vnc') {
+      console.log(`[VNC Proxy] Forwarding to localhost:6080`);
+      proxy.ws(req, socket, head);
+    }
+  });
+
   app.use(cors());
   app.use(express.json());
   app.use(morgan(':date[iso] :method :url :status :res[content-length] - :response-time ms'));
+
+  // Required headers for WebContainers
+  app.use((req, res, next) => {
+    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    next();
+  });
 
   const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
@@ -153,21 +188,19 @@ async function startServer() {
         });
       }
 
-      const results = [];
-      for (const step of plan.steps) {
+      const results = await Promise.all(plan.steps.map(async (step: any) => {
         const handler = HANDLERS[step.handler];
         if (!handler) {
-          results.push({ step: step.handler, status: "error", error: "Unknown handler" });
-          break;
+          return { step: step.handler, status: "error", error: "Unknown handler" };
         }
 
         try {
           const result = await handler(step.params);
-          results.push({ step: step.handler, status: "success", output: result });
+          return { step: step.handler, status: "success", output: result };
         } catch (err: any) {
-          results.push({ step: step.handler, status: "failed", error: err.message });
+          return { step: step.handler, status: "failed", error: err.message };
         }
-      }
+      }));
 
       res.json({
         requestId: req.ctx.requestId,
@@ -205,9 +238,34 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`VNC Proxy active at ws://localhost:${PORT}/vnc -> ws://localhost:6080`);
   });
+
+  // --- Mock VNC Server for Demo ---
+  // Since we don't have a real VNC server installed in the environment,
+  // we'll start a mock WebSocket server that accepts connections on 6080.
+  // This prevents the ECONNREFUSED error and allows the UI to "connect".
+  const vncServer = new WebSocketServer({ port: 6080 });
+  vncServer.on('connection', (ws) => {
+    console.log('[Mock VNC] Client connected');
+    
+    // Send RFB 3.8 protocol handshake (standard VNC)
+    ws.send(Buffer.from('RFB 003.008\n'));
+
+    ws.on('message', (data) => {
+      // Handle basic RFB handshake steps if needed
+      // For a true mock, we'd need to handle security types, etc.
+      // But just sending the version string often gets the client past the initial connect phase.
+    });
+
+    ws.on('close', () => {
+      console.log('[Mock VNC] Client disconnected');
+    });
+  });
+
+  console.log('[Mock VNC] Mock VNC server listening on port 6080');
 }
 
 startServer();

@@ -13,6 +13,8 @@ export enum AgentType {
   NAVIGATOR = 'NAVIGATOR', // Specialist: Geospatial
   SPEEDSTER = 'SPEEDSTER', // Operational: Fast Lite model
   ANTIGRAVITY = 'ANTIGRAVITY', // Executor: Infrastructure & DevOps
+  AI_EMPLOYEE = 'AI_EMPLOYEE', // Generalist: Emotional Intelligence & Enterprise Tasks
+  BRAND_ARCHITECT = 'BRAND_ARCHITECT', // Specialist: Brand Voice & Messaging
 }
 
 export type McpPlatform = 'google' | 'vertex' | 'openai' | 'anthropic' | 'xai' | 'deepseek' | 'huggingface' | 'replicate' | 'openrouter' | 'cohere' | 'assemblyai' | 'custom';
@@ -153,6 +155,7 @@ export interface CanvasArtifact {
   title: string;
   type: 'html' | 'react' | 'python' | 'markdown' | 'json' | 'mermaid' | 'flutter';
   content: string;
+  code?: string; // Optional code property for LivePreview
   timestamp: number;
 }
 
@@ -182,7 +185,7 @@ export interface MemoryNode {
   content: string;
   embedding: number[];
   timestamp: number;
-  type: 'user_fact' | 'interaction' | 'system_note';
+  type: 'user_fact' | 'interaction' | 'system_note' | 'system';
   relevance: number; // Runtime calculated relevance to current context
   tags: string[];
   isPinned?: boolean; // Level 7: Persistent context
@@ -218,6 +221,7 @@ export interface Message {
   metadata?: {
     modelUsed?: string;
     provider?: string;
+    emotion?: string;
   };
   securityRequest?: SecurityRequest;
 }

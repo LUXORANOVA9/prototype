@@ -83,7 +83,7 @@ const GlobalStyles = () => (
 
     /* High-End Cinematic Blur Reveals */
     @keyframes blur-rise {
-      0% { opacity: 0; filter: blur(16px); transform: translateY(30px) scale(0.98); }
+      0% { opacity: 0; filter: blur(24px); transform: translateY(40px) scale(0.96); }
       100% { opacity: 1; filter: blur(0px); transform: translateY(0) scale(1); }
     }
     @keyframes fade-in {
@@ -91,8 +91,8 @@ const GlobalStyles = () => (
       100% { opacity: 1; }
     }
 
-    .animate-blur-rise { animation: blur-rise 1.4s cubic-bezier(.16,.84,.24,1) both; }
-    .animate-fade-in { animation: fade-in 2s ease-out both; }
+    .animate-blur-rise { animation: blur-rise 1.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .animate-fade-in { animation: fade-in 2.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
     /* Utilities */
     .delay-100 { animation-delay: 100ms; }

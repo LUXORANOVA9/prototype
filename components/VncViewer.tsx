@@ -20,7 +20,7 @@ type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
 type DeviceFrame = 'none' | 'mobile' | 'tablet';
 
 export const VncViewer: React.FC<VncViewerProps> = ({ 
-  url: initialUrl = typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:6080` : 'ws://localhost:6080', 
+  url: initialUrl, 
   username: initialUsername = '',
   password: initialPassword = '',
   onClose 
@@ -28,7 +28,13 @@ export const VncViewer: React.FC<VncViewerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const rfbRef = useRef<RFB | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
-  const [url, setUrl] = useState(initialUrl);
+  
+  // Default to proxied VNC URL if not provided
+  const [url, setUrl] = useState(() => {
+    if (initialUrl) return initialUrl;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}/vnc`;
+  });
   const [username, setUsername] = useState(initialUsername);
   const [password, setPassword] = useState(initialPassword);
   const [showSettings, setShowSettings] = useState(false);
@@ -369,7 +375,7 @@ export const VncViewer: React.FC<VncViewerProps> = ({
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   className="bg-black/50 text-sm px-3 py-2 rounded-lg border border-white/10 font-mono w-64 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-zinc-200"
-                  placeholder="ws://localhost:6080"
+                  placeholder="ws://localhost:3000/vnc"
                 />
               </div>
               <div className="flex flex-col gap-1.5">

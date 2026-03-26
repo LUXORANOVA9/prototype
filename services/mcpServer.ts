@@ -582,7 +582,6 @@ class LuxorMcpServer {
             } else if (args.action === 'screenshot') {
                 resultData = {
                     screenshotId: `scr_${Date.now()}`,
-                    dimensions: "1920x1080",
                     status: "Captured"
                 };
             }
