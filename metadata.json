@@ -1,6 +1,7 @@
 {
-  "name": "Luxor9 Agentic AI",
-  "description": "A hierarchical, multipurpose AI generalist featuring parallel task processing, real-time voice interaction, video generation, and advanced reasoning agents.",
+  "name": "Luxor9 Chat",
+  "description": "A high-performance AI chat experience optimized for mobile and desktop, featuring parallel task processing, real-time voice, and advanced reasoning.",
+  "Overwrite": true,
   "requestFramePermissions": [
     "camera",
     "microphone",

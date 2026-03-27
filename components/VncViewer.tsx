@@ -40,6 +40,8 @@ export const VncViewer: React.FC<VncViewerProps> = ({
   const [showSettings, setShowSettings] = useState(false);
   const [deviceFrame, setDeviceFrame] = useState<DeviceFrame>('none');
   const [retryCount, setRetryCount] = useState(0);
+  const [agentCursor, setAgentCursor] = useState<{ x: number, y: number, visible: boolean }>({ x: 0, y: 0, visible: false });
+  const [lastAction, setLastAction] = useState<string | null>(null);
 
   const connect = () => {
     if (!containerRef.current) return;
@@ -137,6 +139,15 @@ export const VncViewer: React.FC<VncViewerProps> = ({
       
       const { action, x, y, text, key } = e.detail;
       
+      // Update agent cursor for visual feedback
+      if (x !== undefined && y !== undefined) {
+        setAgentCursor({ x, y, visible: true });
+        // Hide cursor after 2 seconds of inactivity
+        const timer = setTimeout(() => setAgentCursor(prev => ({ ...prev, visible: false })), 2000);
+        setLastAction(action.replace('_', ' '));
+        setTimeout(() => setLastAction(null), 1500);
+      }
+
       try {
         switch (action) {
           case 'mouse_move':
@@ -158,6 +169,7 @@ export const VncViewer: React.FC<VncViewerProps> = ({
             break;
           case 'type':
             if (text) {
+              setLastAction(`typing: ${text}`);
               for (let i = 0; i < text.length; i++) {
                 const charCode = text.charCodeAt(i);
                 rfbRef.current.sendKey(charCode, 1);
@@ -167,11 +179,13 @@ export const VncViewer: React.FC<VncViewerProps> = ({
             break;
           case 'key':
             if (key) {
+              setLastAction(`key: ${key}`);
               rfbRef.current.sendKey(key, 1);
               rfbRef.current.sendKey(key, 0);
             }
             break;
           case 'screenshot':
+            setLastAction('capturing...');
             // We can capture the canvas and dispatch it back
             if (containerRef.current) {
               const canvas = containerRef.current.querySelector('canvas');
@@ -442,6 +456,83 @@ export const VncViewer: React.FC<VncViewerProps> = ({
               objectFit: deviceFrame !== 'none' ? 'contain' : 'fill'
             }}
           >
+            {/* Neural Stream Overlay */}
+            <AnimatePresence>
+              {agentCursor.visible && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 pointer-events-none z-40 overflow-hidden"
+                >
+                  {/* Scanline Effect */}
+                  <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%] pointer-events-none opacity-20" />
+                  
+                  {/* Pulsing Grid */}
+                  <motion.div 
+                    animate={{ opacity: [0.05, 0.1, 0.05] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                    className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay"
+                  />
+                  
+                  {/* Digital Rain / Data Stream (Subtle) */}
+                  <div className="absolute top-0 left-0 w-full h-full opacity-10">
+                    {[...Array(5)].map((_, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ y: -100, x: Math.random() * 100 + '%' }}
+                        animate={{ y: '100vh' }}
+                        transition={{ 
+                          duration: Math.random() * 2 + 2, 
+                          repeat: Infinity, 
+                          delay: Math.random() * 2,
+                          ease: "linear"
+                        }}
+                        className="absolute w-px h-20 bg-gradient-to-b from-transparent via-amber-500 to-transparent"
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Agent Ghost Cursor */}
+            <AnimatePresence>
+              {agentCursor.visible && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ 
+                    opacity: 1, 
+                    scale: 1,
+                    x: agentCursor.x, 
+                    y: agentCursor.y 
+                  }}
+                  exit={{ opacity: 0, scale: 0.5 }}
+                  transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                  className="absolute top-0 left-0 pointer-events-none z-50 flex flex-col items-center"
+                  style={{ transform: 'translate(-50%, -50%)' }}
+                >
+                  <div className="relative">
+                    <MousePointer2 size={24} className="text-amber-500 fill-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
+                    <motion.div 
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                      className="absolute inset-0 bg-amber-500 rounded-full blur-md -z-10"
+                    />
+                  </div>
+                  {lastAction && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-2 px-2 py-1 bg-zinc-900/90 border border-amber-500/30 rounded text-[10px] font-bold text-amber-500 uppercase tracking-widest whitespace-nowrap shadow-xl"
+                    >
+                      {lastAction}
+                    </motion.div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Connection Overlays */}
             {connectionState === 'disconnected' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm z-10">

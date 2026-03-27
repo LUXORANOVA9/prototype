@@ -202,7 +202,7 @@ export const AgentSelector: React.FC<Props> = ({ activeAgent, onSelect, onOpenMc
       <div className="flex-1 flex md:flex-col flex-row overflow-hidden md:hover:overflow-y-auto custom-scrollbar md:px-3 md:pb-4 space-y-0 md:space-y-6">
           
           {/* Mobile Horizontal Scroll with Snap */}
-          <div className="flex-1 flex md:hidden flex-row overflow-x-auto no-scrollbar items-center px-4 gap-3 snap-x snap-mandatory py-2">
+          <div className="flex-1 flex md:hidden flex-row overflow-x-auto no-scrollbar items-center px-4 gap-4 snap-x snap-mandatory py-3">
               {agentGroups.flatMap(g => {
                   const allAgents: AgentConfig[] = [];
                   const collect = (agents: AgentConfig[]) => {
@@ -223,15 +223,28 @@ export const AgentSelector: React.FC<Props> = ({ activeAgent, onSelect, onOpenMc
                            key={agent.id} 
                            onClick={() => onSelect(agent.id)}
                            className={`
-                             snap-center relative flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300
+                             snap-center relative flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500
                              ${isActive 
-                               ? 'bg-zinc-900 dark:bg-zinc-800 text-white dark:text-zinc-100 shadow-md scale-105 border border-amber-500/50' 
-                               : 'bg-zinc-100 dark:bg-zinc-900/40 text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-white/5'
+                               ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-[0_0_20px_rgba(245,158,11,0.3)] scale-110 z-10 border-2 border-amber-500' 
+                               : 'bg-zinc-100 dark:bg-white/5 text-zinc-400 dark:text-zinc-600 border border-zinc-200 dark:border-white/5 opacity-60'
                              }
                            `}
                        >
-                           <Icon size={20} />
-                           {isActive && <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-amber-500"></div>}
+                           <Icon size={24} className={isActive ? 'animate-pulse' : ''} />
+                           
+                           {isActive && (
+                               <>
+                                   <div className="absolute -bottom-2 w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,1)]"></div>
+                                   <div className="absolute inset-0 rounded-2xl bg-amber-500/20 animate-ping [animation-duration:3s]"></div>
+                               </>
+                           )}
+                           
+                           {/* Label for active agent on mobile */}
+                           {isActive && (
+                               <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded shadow-xl whitespace-nowrap animate-in fade-in slide-in-from-bottom-1">
+                                   {agent.name}
+                               </div>
+                           )}
                        </button>
                    )
               })}

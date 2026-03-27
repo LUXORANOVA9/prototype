@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useTransition } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { AgentType, Message, ImageGenerationConfig, VideoGenerationConfig, Task, InputAsset, CanvasArtifact, AuditReport } from '../types';
 import { 
   runOverseerAgent, 
@@ -22,7 +23,52 @@ import { evaluateResponse } from '../utils/antiPatterns';
 import AntiPatternsWorker from '../utils/antiPatternsWorker?worker';
 import { mapMessagesToHistory } from '../utils/geminiHelpers';
 import { ChatMessage } from './ChatMessage';
-import { Send, Image as ImageIcon, Loader2, Mic, MicOff, Search, BrainCircuit, Paperclip, Activity, Layers, ShieldCheck, Smartphone, Clapperboard, MonitorPlay, Settings, Cpu, ChevronRight, Zap, Sparkles, X, ArrowRight, Square, Terminal, Code, Palette, Globe, Database, Network, Target, ChevronDown, Film, Monitor, Trash2, Users, Bot } from 'lucide-react';
+import { 
+  Send, 
+  Plus, 
+  Image as ImageIcon, 
+  Video, 
+  Mic, 
+  MicOff,
+  StopCircle,
+  Sparkles,
+  Terminal,
+  Code2,
+  Box,
+  Monitor,
+  Layout,
+  ChevronRight,
+  History,
+  Settings,
+  Menu,
+  X,
+  ArrowDown,
+  ArrowRight,
+  Paperclip,
+  Clapperboard,
+  Square,
+  Activity,
+  ShieldCheck,
+  Smartphone,
+  MonitorPlay,
+  Code,
+  Layers,
+  Network,
+  Search,
+  BrainCircuit,
+  Loader2,
+  Cpu,
+  Zap,
+  Palette,
+  Globe,
+  Database,
+  Target,
+  ChevronDown,
+  Film,
+  Trash2,
+  Users,
+  Bot
+} from 'lucide-react';
 import { LiveInterface } from './LiveInterface';
 import { LivePreview } from './LivePreview';
 import { mcpRouter } from '../services/mcpRouter';
@@ -135,7 +181,16 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
 
   const filteredCommands = COMMANDS.filter(c => c.label.toLowerCase().includes(commandFilter.toLowerCase()));
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+    }
+  }, [input]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setInput(val);
     if (val.startsWith('/')) {
@@ -143,6 +198,13 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
       setCommandFilter(val.slice(1));
     } else {
       setShowCommandPalette(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
   };
 
@@ -191,7 +253,25 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
 
   const assetInputRef = useRef<HTMLInputElement>(null);
   const msgEndRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const workerRef = useRef<Worker | null>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (scrollRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+        setShowScrollButton(scrollHeight - scrollTop - clientHeight > 300);
+      }
+    };
+    const scrollEl = scrollRef.current;
+    scrollEl?.addEventListener('scroll', handleScroll);
+    return () => scrollEl?.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToBottom = () => {
+    msgEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   // Initialize Web Worker
   useEffect(() => {
@@ -220,8 +300,10 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
 
   // Auto-scroll effect
   useEffect(() => {
-    msgEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isBusy]);
+    if (!showScrollButton) {
+      msgEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isBusy, showScrollButton]);
 
   // Auto-start video generation for Director agent
   useEffect(() => {
@@ -451,6 +533,9 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
     });
 
     setInput('');
+    setAttachedAsset(null);
+    setAssetType(null);
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
     setShowCommandPalette(false);
     setIsChatGenerating(true);
     addActivity(`User: ${textToSend.slice(0, 20)}...`);
@@ -701,49 +786,43 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                   </div>
               </div>
 
-              {/* 2. CONTENT AREA (Scrollable) */}
-              <div className="flex-1 relative flex flex-col w-full min-h-0">
-                 {agent === AgentType.COMMUNICATOR ? (
-                     <LiveInterface externalAudioBase64={latestAudio} />
-                 ) : (
-                     <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth w-full relative">
-                         <div className="min-h-full flex flex-col pt-24 pb-4 px-4 md:px-8 max-w-5xl mx-auto">
-                             {messages.length === 0 ? (
-                                 <div className="flex-1 flex flex-col items-center justify-center select-none animate-in fade-in duration-700">
-                                     {/* Welcome Icon */}
-                                     <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-white to-zinc-100 dark:from-zinc-900 dark:to-black border border-zinc-200 dark:border-white/10 shadow-2xl flex items-center justify-center relative mb-8 group">
-                                         <div className="absolute inset-0 bg-amber-500/10 dark:bg-zinc-800/50 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
-                                         <Sparkles size={32} className="text-zinc-400 group-hover:text-amber-500 transition-colors duration-500" />
-                                         <div className="absolute -bottom-2 -right-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 rounded text-[9px] font-mono text-zinc-500 uppercase">Idle</div>
-                                     </div>
-                                     
-                                     <h3 className="text-2xl brand-font text-zinc-900 dark:text-zinc-200 tracking-wider mb-2 text-center">
-                                        <span className="text-zinc-500">System</span> Ready
-                                     </h3>
-                                     <p className="text-zinc-500 text-sm max-w-md text-center mb-10 font-light">
-                                        Initialize {agent.toLowerCase().replace('_', ' ')} protocol to begin sequence.
-                                     </p>
+              {/* 2. CHAT HISTORY AREA (Flex Item - Scrollable) */}
+              <div className="flex-1 relative min-h-0 flex flex-col bg-[#050505]">
+                  <div 
+                    ref={scrollRef}
+                    className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scrollbar-hide"
+                  >
+                      <div className="max-w-3xl mx-auto w-full pb-32">
+                          {messages.length === 0 ? (
+                              <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8 animate-in fade-in zoom-in-95 duration-1000">
+                                  <div className="w-20 h-20 rounded-3xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center shadow-[0_0_50px_rgba(37,99,235,0.1)]">
+                                      <Sparkles size={40} className="text-blue-400 animate-pulse" />
+                                  </div>
+                                  
+                                  <div className="space-y-4">
+                                      <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white" style={{ fontFamily: 'var(--font-display)' }}>How can I help you today?</h2>
+                                      <p className="text-zinc-500 max-w-md mx-auto font-light">Select a specialized protocol or start a conversation to begin your journey into the Luxor9 Intelligence Core.</p>
+                                  </div>
 
-                                     {/* Responsive Grid for Starters */}
-                                     <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 w-full max-w-4xl px-2 sm:px-4">
-                                        {(STARTER_PROMPTS[agent] || GENERIC_STARTERS).map((starter, idx) => {
-                                            const Icon = starter.icon;
-                                            return (
-                                                <button 
-                                                    key={idx}
-                                                    onClick={() => executePrompt(starter.prompt)}
-                                                    className="group text-left p-4 rounded-xl border border-zinc-200 dark:border-white/5 bg-white dark:bg-black/40 hover:bg-zinc-50 dark:hover:bg-white/5 hover:border-amber-500/30 dark:hover:border-white/10 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 shadow-sm dark:shadow-none"
-                                                >
-                                                    <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-white/5 flex items-center justify-center mb-3 text-zinc-400 group-hover:text-amber-500 transition-colors">
-                                                        <Icon size={16} />
-                                                    </div>
-                                                    <div className="text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1 group-hover:text-zinc-900 dark:group-hover:text-zinc-100">{starter.label}</div>
-                                                    <div className="text-[10px] text-zinc-500 leading-relaxed line-clamp-2 group-hover:text-zinc-600 dark:group-hover:text-zinc-400">{starter.prompt}</div>
-                                                </button>
-                                            )
-                                        })}
-                                     </div>
-                                 </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl px-4">
+                                      {(STARTER_PROMPTS[agent] || GENERIC_STARTERS).map((starter, i) => {
+                                          const Icon = starter.icon;
+                                          return (
+                                              <button 
+                                                  key={i} 
+                                                  onClick={() => executePrompt(starter.prompt)}
+                                                  className="group text-left p-4 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300 flex flex-col gap-2"
+                                              >
+                                                  <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-white/5 flex items-center justify-center mb-1 text-zinc-400 group-hover:text-blue-400 transition-colors">
+                                                      <Icon size={16} />
+                                                  </div>
+                                                  <div className="text-xs font-bold text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-zinc-100">{starter.label}</div>
+                                                  <div className="text-[10px] text-zinc-500 leading-relaxed line-clamp-2 font-light">{starter.prompt}</div>
+                                              </button>
+                                          )
+                                      })}
+                                   </div>
+                               </div>
                              ) : (
                                  <div className="flex-1 space-y-6 pb-4">
                                     {messages.map(m => (
@@ -759,40 +838,59 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                              )}
 
                              {isChatGenerating && (
-                                 <div className="flex justify-start py-6 animate-in fade-in duration-300">
-                                    <div className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-black/60 rounded-2xl border border-zinc-200 dark:border-white/5 text-zinc-500 dark:text-zinc-400 text-xs font-mono shadow-lg">
-                                        <div className="relative">
-                                            <Loader2 size={14} className="animate-spin text-amber-500" />
-                                            <div className="absolute inset-0 blur-sm bg-amber-500/40 animate-pulse"></div>
+                                 <div className="flex justify-start py-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                    <div className="flex items-center gap-3 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/40 rounded-2xl border border-zinc-200 dark:border-white/5 text-zinc-500 dark:text-zinc-400 text-[10px] font-mono shadow-sm backdrop-blur-md">
+                                        <div className="relative flex items-center justify-center">
+                                            <Loader2 size={12} className="animate-spin text-blue-500" />
+                                            <div className="absolute inset-0 blur-md bg-blue-500/20 animate-pulse"></div>
                                         </div>
-                                        <span className="tracking-widest animate-pulse">PROCESSING_DATA_STREAM...</span>
+                                        <span className="tracking-[0.2em] font-bold">LUXOR_PROCESSING...</span>
+                                        <div className="flex gap-1">
+                                            <div className="w-1 h-1 rounded-full bg-blue-500/40 animate-bounce [animation-delay:-0.3s]"></div>
+                                            <div className="w-1 h-1 rounded-full bg-blue-500/40 animate-bounce [animation-delay:-0.15s]"></div>
+                                            <div className="w-1 h-1 rounded-full bg-blue-500/40 animate-bounce"></div>
+                                        </div>
                                     </div>
                                  </div>
-                             )}
-                             
-                             <div ref={msgEndRef} className="h-4" />
-                         </div>
-                     </div>
-                 )}
-              </div>
+                              )}
+                              
+                              <div ref={msgEndRef} className="h-4" />
+                          </div>
+
+                          {/* Scroll to Bottom Button */}
+                          <AnimatePresence>
+                            {showScrollButton && (
+                              <motion.button
+                                initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                                onClick={scrollToBottom}
+                                className="fixed bottom-24 sm:bottom-32 right-4 sm:right-8 p-2.5 sm:p-3 rounded-full bg-blue-600 text-white shadow-2xl hover:bg-blue-500 transition-colors z-[100] border border-white/20 backdrop-blur-md active:scale-90"
+                              >
+                                <ArrowDown size={18} className="sm:w-5 sm:h-5" />
+                              </motion.button>
+                            )}
+                          </AnimatePresence>
+                      </div>
+               </div>
 
               {/* 3. INPUT OMNI-BAR (Flex Item - Pinned Bottom) */}
-              <div className="flex-none z-40 px-2 sm:px-4 pb-2 sm:pb-[env(safe-area-inset-bottom)] pt-2 bg-zinc-50/90 dark:bg-[#050505]/90 backdrop-blur-lg border-t border-zinc-200/50 dark:border-white/5 transition-all relative">
+              <div className="flex-none z-40 px-3 sm:px-4 pb-4 sm:pb-[env(safe-area-inset-bottom,2rem)] pt-2 bg-gradient-to-t from-[#050505] via-[#050505]/95 to-transparent transition-all relative">
                  
                  {/* DIRECTOR CONTROLS (Responsive) */}
                      {agent === AgentType.DIRECTOR && (
-                        <div className="w-full max-w-2xl mx-auto mb-3 animate-in slide-in-from-bottom-2 duration-500">
-                           <div className="bg-white/50 dark:bg-black/50 border border-zinc-200 dark:border-white/10 rounded-xl p-2 shadow-sm">
+                        <div className="w-full max-w-3xl mx-auto mb-4 animate-in slide-in-from-bottom-2 duration-500">
+                           <div className="bg-white/5 dark:bg-black/50 border border-white/10 rounded-2xl p-2 shadow-2xl backdrop-blur-xl">
                                <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
                                    {/* Model Select */}
                                    <div className="relative group col-span-2 sm:col-span-1">
                                        <select 
                                           value={videoConfig.modelId} 
                                           onChange={(e) => setVideoConfig({...videoConfig, modelId: e.target.value})}
-                                          className="w-full sm:w-auto appearance-none bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/5 rounded-lg pl-3 pr-8 py-1.5 telemetry-text font-bold text-zinc-700 dark:text-zinc-200 outline-none cursor-pointer hover:bg-zinc-200 dark:hover:bg-white/10 transition-all truncate"
+                                          className="w-full sm:w-auto appearance-none bg-white/5 border border-white/10 rounded-xl pl-3 pr-8 py-2 telemetry-text font-bold text-zinc-200 outline-none cursor-pointer hover:bg-white/10 transition-all truncate"
                                        >
                                           {VIDEO_MODELS.map(m => (
-                                             <option key={m.id} value={m.id} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200">
+                                             <option key={m.id} value={m.id} className="bg-zinc-900 text-zinc-200">
                                                {m.name}
                                              </option>
                                           ))}
@@ -802,30 +900,30 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                                        </div>
                                    </div>
 
-                                   <div className="w-px h-4 bg-zinc-300 dark:bg-white/10 mx-2 hidden sm:block"></div>
+                                   <div className="w-px h-4 bg-white/10 mx-2 hidden sm:block"></div>
 
                                    {/* Aspect Ratio */}
-                                   <div className="flex bg-zinc-100 dark:bg-white/5 rounded-lg p-0.5 justify-center border border-zinc-200 dark:border-white/5">
+                                   <div className="flex bg-white/5 rounded-xl p-1 justify-center border border-white/10">
                                       {['16:9', '9:16'].map(ratio => (
                                           <button
                                             key={ratio}
                                             onClick={() => setVideoConfig({...videoConfig, aspectRatio: ratio as any})}
-                                            className={`flex-1 sm:flex-none px-3 py-1 rounded-md telemetry-text font-bold transition-all ${videoConfig.aspectRatio === ratio ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
+                                            className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg telemetry-text font-bold transition-all ${videoConfig.aspectRatio === ratio ? 'bg-white text-zinc-900 shadow-lg' : 'text-zinc-400 hover:text-zinc-200'}`}
                                           >
                                             {ratio}
                                           </button>
                                       ))}
                                    </div>
 
-                                   <div className="w-px h-4 bg-zinc-300 dark:bg-white/10 mx-2 hidden sm:block"></div>
+                                   <div className="w-px h-4 bg-white/10 mx-2 hidden sm:block"></div>
 
                                    {/* Resolution */}
-                                   <div className="flex bg-zinc-100 dark:bg-white/5 rounded-lg p-0.5 justify-center border border-zinc-200 dark:border-white/5">
+                                   <div className="flex bg-white/5 rounded-xl p-1 justify-center border border-white/10">
                                       {['720p', '1080p'].map(res => (
                                           <button
                                             key={res}
                                             onClick={() => setVideoConfig({...videoConfig, resolution: res as any})}
-                                            className={`flex-1 sm:flex-none px-3 py-1 rounded-md telemetry-text font-bold transition-all ${videoConfig.resolution === res ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
+                                            className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg telemetry-text font-bold transition-all ${videoConfig.resolution === res ? 'bg-white text-zinc-900 shadow-lg' : 'text-zinc-400 hover:text-zinc-200'}`}
                                           >
                                             {res}
                                           </button>
@@ -836,52 +934,110 @@ export const AgentWorkstation: React.FC<{ agent: AgentType; onOpenMcp: () => voi
                         </div>
                      )}
 
-                     <div className="w-full max-w-2xl mx-auto relative group mb-2">
+                     <div className="w-full max-w-3xl mx-auto relative group mb-2">
                          
+                         {/* Command Palette Overlay */}
+                         <AnimatePresence>
+                            {showCommandPalette && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    className="absolute bottom-full left-0 w-full mb-4 bg-zinc-900/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden z-50"
+                                >
+                                    <div className="p-3 border-b border-white/5 bg-white/5">
+                                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-2">Quick Commands</span>
+                                    </div>
+                                    <div className="max-h-80 overflow-y-auto p-2">
+                                        {filteredCommands.length > 0 ? filteredCommands.map((cmd) => (
+                                            <button
+                                                key={cmd.id}
+                                                onClick={() => handleCommandSelect(cmd)}
+                                                className="w-full flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl transition-all text-left group"
+                                            >
+                                                <div className="p-2.5 bg-white/5 rounded-xl group-hover:bg-white/10 transition-colors">
+                                                    <cmd.icon size={18} className="text-zinc-400" />
+                                                </div>
+                                                <span className="text-sm font-medium text-zinc-200">{cmd.label}</span>
+                                            </button>
+                                        )) : (
+                                            <div className="p-10 text-center">
+                                                <Search size={28} className="mx-auto text-zinc-700 mb-3 opacity-20" />
+                                                <p className="text-xs text-zinc-500">No commands matching "{commandFilter}"</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            )}
+                         </AnimatePresence>
+
                          {/* Input Glow */}
-                         <div className="absolute -inset-0.5 bg-gradient-to-r from-zinc-500/20 to-zinc-700/20 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+                         <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-3xl blur opacity-0 group-hover:opacity-100 transition duration-1000"></div>
                          
-                         <div className="relative bg-white/80 dark:bg-black/60 backdrop-blur-2xl border border-zinc-200 dark:border-white/10 rounded-2xl shadow-2xl flex items-center p-2 transition-all focus-within:border-zinc-300 dark:focus-within:border-white/20 focus-within:bg-white dark:focus-within:bg-black/90">
+                         <motion.div 
+                            layout
+                            className={`relative bg-black/60 backdrop-blur-3xl border rounded-3xl shadow-2xl flex items-end p-1.5 sm:p-2 transition-all duration-500 ${isChatGenerating ? 'border-amber-500/40 bg-black/80' : 'border-white/10 focus-within:border-white/20 focus-within:bg-black/90'}`}
+                         >
+                             {/* Neural Pulse Background */}
+                             {isChatGenerating && (
+                               <motion.div 
+                                 animate={{ 
+                                   opacity: [0.05, 0.15, 0.05],
+                                   scale: [1, 1.02, 1]
+                                 }}
+                                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                                 className="absolute -inset-1 bg-gradient-to-r from-amber-500/10 via-blue-500/10 to-purple-500/10 rounded-[2.2rem] blur-2xl -z-10"
+                               />
+                             )}
                              
-                             <button onClick={() => assetInputRef.current?.click()} className="p-3 text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-xl transition-all mr-1">
-                                <Paperclip size={18} />
+                             <button onClick={() => assetInputRef.current?.click()} className="p-3 sm:p-3.5 text-zinc-500 hover:text-white transition-colors rounded-2xl hover:bg-white/5 shrink-0 mr-0.5 sm:mr-1 mb-0.5">
+                                <Paperclip size={18} className="sm:w-5 sm:h-5" />
                              </button>
                              
-                             <button onClick={toggleListening} className={`p-3 rounded-xl transition-all mr-1 ${isListening ? 'text-red-500 bg-red-100 dark:bg-red-500/20 animate-pulse' : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5'}`}>
-                                {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                             <button onClick={toggleListening} className={`p-3 sm:p-3.5 rounded-2xl transition-all mr-0.5 sm:mr-1 mb-0.5 ${isListening ? 'text-red-500 bg-red-500/10 animate-pulse' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}>
+                                {isListening ? <MicOff size={18} className="sm:w-5 sm:h-5" /> : <Mic size={18} className="sm:w-5 sm:h-5" />}
                              </button>
 
-                             <input 
-                                type="text" 
+                             <motion.textarea 
+                                ref={textareaRef}
                                 value={input} 
                                 onChange={handleInputChange} 
-                                onKeyDown={(e) => e.key === 'Enter' && handleSend()} 
-                                placeholder={isListening ? "Listening..." : isTranscribing ? "Transcribing..." : (attachedAsset ? "Asset attached. Add context..." : "Enter system directive...")}
-                                className="flex-1 bg-transparent border-none text-[16px] sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none px-2 font-light tracking-wide font-mono min-w-0"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        if (window.innerWidth > 768) {
+                                            e.preventDefault();
+                                            handleSend();
+                                        }
+                                    }
+                                }}
+                                placeholder={isListening ? "Listening..." : isTranscribing ? "Transcribing..." : (attachedAsset ? "Asset attached. Add context..." : "Ask Luxor9 anything...")}
+                                className="flex-1 bg-transparent border-none text-[16px] sm:text-base text-zinc-100 placeholder-zinc-600 focus:outline-none px-2 font-light tracking-wide min-w-0 resize-none py-3 sm:py-3.5 max-h-[200px] leading-relaxed"
                                 autoFocus 
                                 disabled={isChatGenerating || isTranscribing}
+                                rows={1}
+                                style={{ minHeight: '44px' }}
                              />
                             
-                             <div className="flex items-center gap-1 shrink-0 ml-2">
+                             <div className="flex items-center gap-2 shrink-0 ml-1 sm:ml-2 mb-0.5 pr-0.5 sm:pr-1">
                                 {isChatGenerating ? (
                                     <button 
-                                        onClick={() => setIsChatGenerating(false)} // Simulate stop by resetting loading state
-                                        className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all border border-red-500/20"
+                                        onClick={() => setIsChatGenerating(false)}
+                                        className="p-3 sm:p-3.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-2xl transition-all border border-red-500/20"
                                         title="Stop Generation"
                                     >
-                                        <Square size={16} fill="currentColor" />
+                                        <Square size={16} className="sm:w-[18px] sm:h-[18px]" fill="currentColor" />
                                     </button>
-                                ) : (
+                            ) : (
                                     <button 
                                         onClick={() => handleSend()} 
                                         disabled={!input.trim() && !attachedAsset} 
-                                        className="p-3 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-xl transition-all disabled:opacity-50 disabled:bg-transparent disabled:text-zinc-300 dark:disabled:text-zinc-700"
+                                        className={`p-3 sm:p-3.5 rounded-2xl transition-all ${input.trim() || attachedAsset ? 'bg-white text-black shadow-xl scale-105 active:scale-95' : 'bg-white/5 text-zinc-600 opacity-50'}`}
                                     >
-                                         <ArrowRight size={18} />
+                                         <ArrowRight size={18} className="sm:w-5 sm:h-5" strokeWidth={2.5} />
                                     </button>
                                 )}
                              </div>
-                         </div>
+                         </motion.div>
 
                          {/* Asset Badge */}
                          {attachedAsset && (

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Task, AgentType } from '../types';
 import { 
   CircleCheck, 
@@ -36,7 +37,8 @@ import {
   Link,
   ListChecks,
   GitCommit,
-  AlertTriangle
+  AlertTriangle,
+  Palette
 } from 'lucide-react';
 
 interface Props {
@@ -66,6 +68,7 @@ const AGENT_ICONS: Record<AgentType, any> = {
     [AgentType.SPEEDSTER]: Zap,
     [AgentType.ANTIGRAVITY]: Server,
     [AgentType.AI_EMPLOYEE]: Users,
+    [AgentType.BRAND_ARCHITECT]: Palette,
 };
 
 export const TaskBoard: React.FC<Props> = ({ 
@@ -81,6 +84,7 @@ export const TaskBoard: React.FC<Props> = ({
   executingTaskIds
 }) => {
   const [expandedTasks, setExpandedTasks] = React.useState<Record<string, boolean>>({});
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
   const [newSubtaskInputs, setNewSubtaskInputs] = useState<Record<string, string>>({});
   const [newTaskInput, setNewTaskInput] = useState('');
   const [showDependencyEditor, setShowDependencyEditor] = useState<string | null>(null);
@@ -164,14 +168,34 @@ export const TaskBoard: React.FC<Props> = ({
       <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-zinc-300 dark:border-white/20 rounded-br-sm"></div>
 
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 bg-zinc-50 dark:bg-white/5 border-b border-zinc-200 dark:border-white/5">
-        <div className="flex items-center gap-3">
-          <div className="p-1.5 bg-amber-50 dark:bg-amber-500/10 rounded border border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-500 shadow-sm dark:shadow-[0_0_10px_rgba(245,158,11,0.2)]">
-             <Workflow size={16} />
+      <div className="flex items-center justify-between px-5 py-4 bg-zinc-50 dark:bg-white/5 border-b border-zinc-200 dark:border-white/5 relative overflow-hidden">
+        {/* Animated Background Pulse */}
+        <motion.div 
+          animate={{ 
+            opacity: [0.02, 0.08, 0.02],
+            scale: [1, 1.2, 1]
+          }}
+          transition={{ duration: 5, repeat: Infinity }}
+          className="absolute inset-0 bg-amber-500/10 blur-3xl -z-10"
+        />
+        
+        <div className="flex items-center gap-3 relative z-10">
+          <div className="relative">
+            <div className="p-1.5 bg-amber-50 dark:bg-amber-500/10 rounded border border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-500 shadow-sm dark:shadow-[0_0_10px_rgba(245,158,11,0.2)]">
+               <Workflow size={16} />
+            </div>
+            <motion.div 
+              animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="absolute inset-0 bg-amber-500 rounded-full blur-md -z-10"
+            />
           </div>
           <div>
               <div className="text-[10px] font-bold brand-font text-zinc-900 dark:text-zinc-200 tracking-[0.2em] uppercase">Tactical Plan</div>
-              <div className="text-[8px] text-zinc-500 font-mono mt-0.5 tracking-wider">EXECUTION SEQUENCE_V3</div>
+              <div className="text-[8px] text-zinc-500 font-mono mt-0.5 tracking-wider flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></span>
+                EXECUTION SEQUENCE_V3.4
+              </div>
           </div>
         </div>
         
@@ -217,7 +241,9 @@ export const TaskBoard: React.FC<Props> = ({
               <div 
                   id={`task-card-${task.id}`} 
                   key={task.id} 
-                  className={`group/card rounded-xl border transition-all duration-500 relative overflow-hidden flex flex-col ${status.bg} ${status.border} ${isExpanded ? 'ring-1 ring-zinc-300 dark:ring-white/10 md:col-span-2' : 'col-span-1'} ${status.shadow}`}
+                  onMouseEnter={() => setHoveredTaskId(task.id)}
+                  onMouseLeave={() => setHoveredTaskId(null)}
+                  className={`group/card rounded-xl border transition-all duration-500 relative overflow-hidden flex flex-col ${status.bg} ${status.border} ${isExpanded ? 'ring-1 ring-zinc-300 dark:ring-white/10 md:col-span-2' : 'col-span-1'} ${status.shadow} ${hoveredTaskId && (task.dependencies || []).includes(hoveredTaskId) ? 'ring-2 ring-amber-500/50 scale-[1.02] z-20' : ''}`}
               >
                 {/* Visual Blocked Overlay Pattern */}
                 {isBlocked && (

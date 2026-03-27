@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Message, Task } from '../types';
-import { User, Bot, ExternalLink, MapPin, BrainCircuit, AlertTriangle, ShieldCheck, Film, Cpu, Image as ImageIcon, Terminal, Code, CircleCheck, CircleX, Server, Globe, ChevronDown, ChevronRight, Sparkles, Brain, Activity, Box, Zap, Wifi, MousePointer2, Search, Table, RefreshCw } from 'lucide-react';
+import { User, Bot, ExternalLink, MapPin, BrainCircuit, AlertTriangle, ShieldCheck, Film, Cpu, Image as ImageIcon, Terminal, Code, CircleCheck, CircleX, Server, Globe, ChevronDown, ChevronRight, Sparkles, Brain, Activity, Box, Zap, Wifi, MousePointer2, Search, Table, RefreshCw, Copy, Check } from 'lucide-react';
 import { TaskBoard } from './TaskBoard';
 import { memoryService } from '../services/memoryService';
 import { AuditReportCard } from './AuditReport';
@@ -14,11 +14,18 @@ interface Props {
 }
 
 const CodeTerminal: React.FC<{ content: string }> = ({ content }) => {
+    const [copied, setCopied] = useState(false);
     const codeMatch = content.match(/```(\w+)?\n([\s\S]*?)```/);
     const code = codeMatch ? codeMatch[2] : '';
     const language = codeMatch ? codeMatch[1] : 'text';
     const outputMatch = content.match(/Standard Output:\n> (.*)/);
     const output = outputMatch ? outputMatch[1] : '';
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     return (
         <div className="mt-4 rounded-lg overflow-hidden border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-[#0c0c0e] shadow-lg group ring-1 ring-black/5 dark:ring-white/5">
@@ -27,12 +34,21 @@ const CodeTerminal: React.FC<{ content: string }> = ({ content }) => {
                     <Terminal size={12} className="text-emerald-500" />
                     <span className="font-mono text-[10px] uppercase tracking-widest">{language || 'CONSOLE'}</span>
                 </div>
-                <div className="flex gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity">
-                    <div className="w-2 h-2 rounded-full bg-zinc-300 dark:bg-zinc-700"></div>
-                    <div className="w-2 h-2 rounded-full bg-zinc-300 dark:bg-zinc-700"></div>
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={handleCopy}
+                        className="p-1 hover:bg-zinc-200 dark:hover:bg-white/5 rounded transition-colors text-zinc-500 dark:text-zinc-400"
+                        title="Copy code"
+                    >
+                        {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                    </button>
+                    <div className="flex gap-1.5 opacity-50">
+                        <div className="w-2 h-2 rounded-full bg-zinc-300 dark:bg-zinc-700"></div>
+                        <div className="w-2 h-2 rounded-full bg-zinc-300 dark:bg-zinc-700"></div>
+                    </div>
                 </div>
             </div>
-            <div className="p-4 overflow-x-auto">
+            <div className="p-4 overflow-x-auto custom-scrollbar">
                 {code && (
                     <pre className="font-mono text-xs text-zinc-700 dark:text-blue-200/90 leading-relaxed selection:bg-blue-500/30">
                         <code>{code}</code>
@@ -40,7 +56,7 @@ const CodeTerminal: React.FC<{ content: string }> = ({ content }) => {
                 )}
                 <div className="border-t border-zinc-200 dark:border-white/10 pt-3 mt-3">
                     <div className="text-zinc-500 dark:text-zinc-600 mb-1 font-mono text-[9px] uppercase tracking-widest flex items-center gap-1"><Cpu size={10}/> Process Output</div>
-                    <div className="text-emerald-600 dark:text-emerald-400 font-mono text-xs">{output || "Done."}</div>
+                    <div className="text-emerald-600 dark:text-emerald-400 font-mono text-xs break-all">{output || "Done."}</div>
                 </div>
             </div>
         </div>
@@ -232,6 +248,7 @@ export const ChatMessage: React.FC<Props> = ({ message, onUpdateTasks, onExecute
   const isUser = message.role === 'user';
   const [showThinking, setShowThinking] = useState(false);
   const [isMemorized, setIsMemorized] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const isDevOutput = !isUser && message.text?.includes('[Developer Sandbox]');
   const isOpsOutput = !isUser && message.text?.includes('[Antigravity Ops]');
@@ -245,46 +262,53 @@ export const ChatMessage: React.FC<Props> = ({ message, onUpdateTasks, onExecute
 
   const handleMemorize = async () => {
       if (!message.text || isMemorized) return;
-      await memoryService.addMemory(message.text, isUser ? 'user_fact' : 'interaction', ['chat_save']);
-      setIsMemorized(true);
+      try {
+          await memoryService.addMemory(message.text, isUser ? 'user_fact' : 'interaction', ['chat_save']);
+          setIsMemorized(true);
+          // Visual feedback is handled by state
+      } catch (e) {
+          console.error("Memory Save Failed", e);
+      }
+  };
+
+  const handleCopyMessage = () => {
+      if (!message.text) return;
+      navigator.clipboard.writeText(message.text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className={`flex gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'} mb-8 group animate-in slide-in-from-bottom-2 duration-500 fade-in`}>
+    <div className={`flex gap-3 sm:gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'} mb-8 group animate-in slide-in-from-bottom-2 duration-500 fade-in`}>
       
-      <div className={`w-8 h-8 rounded-sm flex items-center justify-center shrink-0 shadow-sm relative overflow-hidden backdrop-blur-md border ${
+      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-sm flex items-center justify-center shrink-0 shadow-sm relative overflow-hidden backdrop-blur-md border ${
           isUser 
             ? 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400' 
             : 'bg-white/10 dark:bg-white/5 border-white/20 text-zinc-900 dark:text-zinc-100'
       }`}>
-        {isUser ? <User size={16} /> : <Bot size={18} className="relative z-10" />}
+        {isUser ? <User size={14} /> : <Bot size={16} className="relative z-10" />}
       </div>
       
-      <div className={`flex flex-col max-w-[92%] md:max-w-[70%] ${isUser ? 'items-end' : 'items-start'}`}>
+      <div className={`flex flex-col max-w-[88%] md:max-w-[70%] ${isUser ? 'items-end' : 'items-start'}`}>
         
         {!isUser && (
-            <div className="flex items-center gap-2 mb-2 ml-1 select-none opacity-80">
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest brand-font flex items-center gap-1">
+            <div className="flex items-center gap-2 mb-1.5 ml-1 select-none opacity-80">
+                <span className="text-[9px] sm:text-[10px] font-bold text-zinc-500 uppercase tracking-widest brand-font flex items-center gap-1">
                     <Sparkles size={10} className="text-amber-500" /> {message.metadata?.provider === 'google' ? 'Gemini' : 'Luxor9'}
                 </span>
                 {message.metadata?.modelUsed && (
-                    <span className="text-[9px] text-zinc-500 dark:text-zinc-600 font-mono px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10">
+                    <span className="text-[8px] sm:text-[9px] text-zinc-500 dark:text-zinc-600 font-mono px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10">
                         {message.metadata.modelUsed}
-                    </span>
-                )}
-                {message.metadata?.emotion && (
-                    <span className="text-[9px] text-indigo-500 dark:text-indigo-400 font-mono px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/20 flex items-center gap-1">
-                        <Activity size={10} /> {message.metadata.emotion}
                     </span>
                 )}
             </div>
         )}
 
         <div className={`
-          relative p-3 sm:p-5 rounded-sm shadow-sm backdrop-blur-md border transition-all duration-300
+          relative p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm backdrop-blur-md border transition-all duration-300
           ${isUser 
-            ? 'bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border-zinc-200 dark:border-zinc-700' 
-            : 'bg-zinc-50 dark:bg-zinc-900/40 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-white/5'
+            ? 'bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border-zinc-200 dark:border-zinc-700 rounded-tr-none' 
+            : 'bg-zinc-50 dark:bg-zinc-900/40 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-white/5 rounded-tl-none'
           }
         `}>
           
@@ -442,6 +466,14 @@ export const ChatMessage: React.FC<Props> = ({ message, onUpdateTasks, onExecute
              
              <div className="w-px h-3 bg-zinc-300 dark:bg-zinc-700"></div>
              
+             <button 
+                onClick={handleCopyMessage}
+                className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"
+             >
+                 {copied ? <Check size={10} className="text-emerald-500" /> : <Copy size={10} />}
+                 {copied ? 'Copied' : 'Copy'}
+             </button>
+
              <button 
                 onClick={handleMemorize} 
                 disabled={isMemorized}

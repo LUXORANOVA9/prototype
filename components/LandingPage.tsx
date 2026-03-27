@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Volume2, VolumeX, Crosshair, ArrowRight, ChevronDown, Cpu, Shield, Zap, Lightbulb, GitMerge, Layers, Rocket } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 // --- GLOBAL STYLES & THEME INJECTION ---
 const GlobalStyles = () => (

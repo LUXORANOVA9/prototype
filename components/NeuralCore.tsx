@@ -102,12 +102,37 @@ const Edges: React.FC<{ nodes: SimulationNode[] }> = ({ nodes }) => {
                 const points = [line.start, line.end];
                 const geometry = new THREE.BufferGeometry().setFromPoints(points);
                 return (
-                    <line key={i} geometry={geometry}>
-                        <lineBasicMaterial color={line.color} transparent opacity={0.15} />
-                    </line>
+                    <group key={i}>
+                        <line geometry={geometry}>
+                            <lineBasicMaterial color={line.color} transparent opacity={0.1} />
+                        </line>
+                        {/* Synaptic Pulse */}
+                        <PulsePoint start={line.start} end={line.end} color={line.color} />
+                    </group>
                 );
             })}
         </group>
+    );
+};
+
+const PulsePoint: React.FC<{ start: THREE.Vector3, end: THREE.Vector3, color: string }> = ({ start, end, color }) => {
+    const meshRef = useRef<THREE.Mesh>(null);
+    const [progress, setProgress] = useState(Math.random());
+    const speed = 0.002 + Math.random() * 0.003;
+
+    useFrame(() => {
+        if (meshRef.current) {
+            const nextProgress = (progress + speed) % 1;
+            setProgress(nextProgress);
+            meshRef.current.position.lerpVectors(start, end, nextProgress);
+        }
+    });
+
+    return (
+        <mesh ref={meshRef}>
+            <sphereGeometry args={[0.08, 8, 8]} />
+            <meshBasicMaterial color={color} transparent opacity={0.6} />
+        </mesh>
     );
 };
 
